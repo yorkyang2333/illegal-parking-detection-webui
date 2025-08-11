@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多模态大模型-车辆违停感知</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <h1 class="text-center my-4">基于多模态大模型的校园返校时段车辆违停感知与优化研究</h1>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card card-row-1">
+                    <div class="card-body">
+                        <h5 class="card-title">① 上传视频</h5>
+                        <form id="upload-form" enctype="multipart/form-data">
+                            <div id="drop-zone" class="form-group text-center">
+                                <div class="upload-content">
+                                    <i class="fas fa-cloud-upload-alt fa-3x"></i>
+                                    <p>拖放视频文件到此处，或点击选择</p>
+                                </div>
+                                <div class="done-content" style="display: none;">
+                                    <i class="fas fa-check-circle fa-3x" style="color: green;"></i>
+                                    <p>完成！</p>
+                                </div>
+                                <input type="file" id="video-file" name="video" accept="video/mp4" style="display: none;">
+                            </div>
+                            <div id="debug-options">
+                                <div class="form-group">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="auto-mode" name="auto_mode" checked>
+                                        <label class="form-check-label" for="auto-mode">
+                                            自动模式
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="fps">帧率</label>
+                                        <input type="number" class="form-control" id="fps" name="fps" value="5" min="1" max="50">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="frames">帧数</label>
+                                        <input type="number" class="form-control" id="frames" name="frames" value="15" min="1" max="50">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="display: none;">上传并处理</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card mt-4 card-row-2">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">② 视频帧</h5>
+                        <div id="frame-container" class="text-center flex-grow-1">
+                            <img id="frame-image" src="" class="img-fluid">
+                        </div>
+                        <div class="d-flex justify-content-between mt-2">
+                            <button id="prev-frame" class="btn btn-secondary">上一帧</button>
+                            <span id="frame-counter"></span>
+                            <button id="next-frame" class="btn btn-secondary">下一帧</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card card-row-1">
+                    <div class="card-body">
+                        <h5 class="card-title">③ 输入提示词</h5>
+                                                <textarea id="prompt-input" class="form-control flex-grow-1" rows="3" placeholder="请在这里输入你的提示词……"></textarea>
+                        <div class="d-flex mt-2">
+                            <button id="run-button" class="btn btn-success">运行</button>
+                            <button id="reset-button" class="btn btn-danger ml-2">重置</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card mt-4 card-row-2">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">④ 输出</h5>
+                        <ul class="nav nav-tabs" id="myTab" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" id="thinking-tab" data-toggle="tab" href="#thinking" role="tab" aria-controls="thinking" aria-selected="true">思考过程</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="output-tab" data-toggle="tab" href="#output" role="tab" aria-controls="output" aria-selected="false">输出结果</a>
+                            </li>
+                        </ul>
+                        <div class="tab-content flex-grow-1" id="myTabContent">
+                            <div class="tab-pane fade show active" id="thinking" role="tabpanel" aria-labelledby="thinking-tab">
+                                <div id="thinking-output"></div>
+                            </div>
+                            <div class="tab-pane fade" id="output" role="tabpanel" aria-labelledby="output-tab">
+                                <div id="final-output"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="debug-container">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="debug-mode-checkbox">
+                <label class="form-check-label" for="debug-mode-checkbox">
+                    Debug Mode
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
