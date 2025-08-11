@@ -11,23 +11,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const thinkingOutput = document.getElementById('thinking-output');
     const finalOutput = document.getElementById('final-output');
     const resetButton = document.getElementById('reset-button');
-    const debugModeCheckbox = document.getElementById('debug-mode-checkbox');
-    const debugOptions = document.getElementById('debug-options');
-
     const converter = new showdown.Converter();
 
     let frames = [];
     let currentFrame = 0;
     let prompt = null;
-
-    // Debug mode toggle
-    debugModeCheckbox.addEventListener('change', () => {
-        if (debugModeCheckbox.checked) {
-            debugOptions.style.display = 'block';
-        } else {
-            debugOptions.style.display = 'none';
-        }
-    });
 
     // Handle drag and drop
     dropZone.addEventListener('click', () => videoFile.click());

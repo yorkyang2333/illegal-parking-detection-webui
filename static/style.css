@@ -134,15 +134,3 @@ h1 {
     width: 50%; /* Initial width */
     min-width: 300px; /* Minimum width for right panel */
 }
-
-.debug-container {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
-}
-
-.debug-container:hover {
-    opacity: 1;
-}
