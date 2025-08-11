@@ -17,6 +17,27 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentFrame = 0;
     let prompt = null;
 
+    // Helper function to add/remove notification badge
+    function toggleNotificationBadge(element, show, targetElementSelector = null) {
+        let targetElement = element;
+        if (targetElementSelector) {
+            targetElement = element.querySelector(targetElementSelector);
+            if (!targetElement) {
+                console.warn(`Target element not found for selector: ${targetElementSelector}`);
+                return;
+            }
+        }
+
+        let badge = targetElement.querySelector('.notification-badge');
+        if (show && !badge) {
+            badge = document.createElement('span');
+            badge.classList.add('notification-badge');
+            targetElement.appendChild(badge);
+        } else if (!show && badge) {
+            targetElement.removeChild(badge);
+        }
+    }
+
     // Handle drag and drop
     dropZone.addEventListener('click', () => videoFile.click());
 
@@ -138,11 +159,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (!reasoningStarted) {
                                 runButton.textContent = '完成！';
                                 reasoningStarted = true;
+                                // Show notification badge on output page link
+                                toggleNotificationBadge(outputLink, true, 'i');
                             }
                         }
                         if (choice.message.content && choice.message.content.length > 0) {
                             finalText += choice.message.content[0].text;
                             finalOutput.innerHTML = converter.makeHtml(finalText);
+                            // Show notification badge on output tab
+                            toggleNotificationBadge(outputTab, true);
                         }
                     }
                 }
@@ -185,7 +210,50 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    
+    const inputLink = document.getElementById('input-link');
+    const outputLink = document.getElementById('output-link');
+    const inputPage = document.getElementById('input-page');
+    const outputPage = document.getElementById('output-page');
+    const outputTab = document.getElementById('output-tab'); // Get reference to output tab
+
+    function showPage(pageToShow) {
+        // Hide all pages
+        inputPage.style.display = 'none';
+        outputPage.style.display = 'none';
+
+        // Remove active class from all links
+        inputLink.classList.remove('active');
+        outputLink.classList.remove('active');
+
+        // Show the selected page and set active link
+        if (pageToShow === 'input') {
+            inputPage.style.display = 'block';
+            inputLink.classList.add('active');
+        } else if (pageToShow === 'output') {
+            outputPage.style.display = 'block';
+            outputLink.classList.add('active');
+        }
+        
+    }
+
+    // Initial page load
+    showPage('input');
+
+    inputLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showPage('input');
+    });
+
+    outputLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showPage('output');
+        toggleNotificationBadge(outputLink, false, 'i'); // Reset badge on click
+    });
+
+    outputTab.addEventListener('click', () => {
+        toggleNotificationBadge(outputTab, false); // Reset badge on click
+    });
+
 });
 
 function equalizeCardHeights(className) {
@@ -211,11 +279,11 @@ function equalizeCardHeights(className) {
 }
 
 window.addEventListener('load', function() {
-    equalizeCardHeights('card-row-1');
+    // equalizeCardHeights('card-row-1'); // Removed to allow CSS to control height
     equalizeCardHeights('card-row-2');
 });
 
 window.addEventListener('resize', function() {
-    equalizeCardHeights('card-row-1');
+    // equalizeCardHeights('card-row-1'); // Removed to allow CSS to control height
     equalizeCardHeights('card-row-2');
 });
