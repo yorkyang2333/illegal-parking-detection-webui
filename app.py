@@ -1,4 +1,3 @@
-
 import os
 import cv2
 import math
@@ -23,6 +22,7 @@ dashscope.api_key = api_key
 model_max_tokens = 30720  # DashScope模型的最大Token数
 frame_max_tokens = 16384  # DashScope模型每帧的最大Token数
 frame_cached_root = os.path.join(os.path.dirname(__file__), "dashscope_cache")
+app.config['FRAME_CACHED_ROOT'] = frame_cached_root # Store in app.config
 
 if not os.path.exists(frame_cached_root):
     os.makedirs(frame_cached_root)
@@ -57,7 +57,7 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
-    clear_cache()
+    # clear_cache() # Removed direct call, now handled by /clear_cache route
     if 'video' not in request.files:
         return jsonify({'error': 'No video file provided'}), 400
     
@@ -163,16 +163,20 @@ def run_inference():
         return jsonify({'error': 'Invalid prompt'}), 400
 
     def event_stream():
-        responses = dashscope.MultiModalConversation.call(model='qvq-max', messages=prompt, stream=True, incremental_output=True)
+        responses = dashscope.MultiModalConversation.call(model='qvq-max-latest', messages=prompt, stream=True, incremental_output=True)
         for response in responses:
             yield f"data: {json.dumps(response)}\n\n"
 
     return Response(event_stream(), mimetype='text/event-stream')
 
 @app.route('/clear_cache', methods=['POST'])
-def clear_cache():
+def clear_cache_route(): # Renamed function
     try:
-        clear_cache()
+        # Ensure the directory exists before trying to clear it
+        if os.path.exists(app.config['FRAME_CACHED_ROOT']):
+            shutil.rmtree(app.config['FRAME_CACHED_ROOT']) # Remove the directory and its contents
+        os.makedirs(app.config['FRAME_CACHED_ROOT']) # Recreate the empty directory
+
         return jsonify({'message': 'Cache cleared successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
