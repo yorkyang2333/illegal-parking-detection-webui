@@ -17,6 +17,19 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentFrame = 0;
     let prompt = null;
 
+    // Helper functions for thinking state
+    function showThinking() {
+        runButton.textContent = '思考中...';
+        runButton.disabled = true;
+        thinkingOutput.innerHTML = ''; // Clear previous thinking output
+        finalOutput.innerHTML = ''; // Clear previous final output
+    }
+
+    function hideThinking() {
+        runButton.textContent = '运行';
+        runButton.disabled = false;
+    }
+
     // Helper function to add/remove notification badge
     function toggleNotificationBadge(element, show, targetElementSelector = null) {
         let targetElement = element;
@@ -39,7 +52,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Handle drag and drop
-    dropZone.addEventListener('click', () => videoFile.click());
+    dropZone.addEventListener('click', () => {
+        console.log("Drop zone clicked!");
+        videoFile.click();
+    });
 
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -82,7 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
             updateFrame();
 
             // Update dropZone content
-                        // Update dropZone content
             dropZone.querySelector('.upload-content').style.display = 'none';
             dropZone.querySelector('.done-content').style.display = 'block';
 
@@ -113,67 +128,72 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    runButton.addEventListener('click', async () => {
-        if (!prompt) {
-            alert('Please upload a video first.');
-            return;
-        }
+    runButton.addEventListener('click', () => {
+        console.log("Run button clicked!");
+        console.log("Current prompt value:", prompt);
+        runInference(prompt, promptInput.value);
+    });
 
-        // Change button text and disable it
-        runButton.textContent = '请稍候……';
-        runButton.disabled = true;
+    const runInference = async (initialPrompt, user_input) => {
+        showThinking();
+        const finalPrompt = JSON.parse(JSON.stringify(initialPrompt));
+        finalPrompt[0].content[1].text = user_input;
+        const selectedModel = document.getElementById('model-select').value;
 
-        prompt[0].content[1].text = promptInput.value;
-        thinkingOutput.innerHTML = '';
-        finalOutput.innerHTML = '';
+        try {
+            const response = await fetch('/run', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: finalPrompt, model: selectedModel }),
+            });
 
-        const response = await fetch('/run', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ prompt })
-        });
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let thinkingText = '';
+            let finalText = '';
+            let reasoningStarted = false;
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let thinkingText = '';
-        let finalText = '';
-        let reasoningStarted = false;
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
 
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                    const data = JSON.parse(line.substring(5));
-                    if (data.output && data.output.choices && data.output.choices.length > 0) {
-                        const choice = data.output.choices[0];
-                        if (choice.message.reasoning_content) {
-                            thinkingText += choice.message.reasoning_content;
-                            thinkingOutput.innerHTML = converter.makeHtml(thinkingText);
-                            if (!reasoningStarted) {
-                                runButton.textContent = '完成！';
-                                reasoningStarted = true;
-                                // Show notification badge on output page link
-                                toggleNotificationBadge(outputLink, true, 'i');
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = JSON.parse(line.substring(5));
+                        if (data.output && data.output.choices && data.output.choices.length > 0) {
+                            const choice = data.output.choices[0];
+                            if (choice.message.reasoning_content) {
+                                thinkingText += choice.message.reasoning_content;
+                                thinkingOutput.innerHTML = converter.makeHtml(thinkingText);
+                                if (!reasoningStarted) {
+                                    runButton.textContent = '完成！'; // This will be replaced by hideThinking
+                                    reasoningStarted = true;
+                                    // Show notification badge on output page link
+                                    toggleNotificationBadge(outputLink, true, 'i');
+                                }
                             }
-                        }
-                        if (choice.message.content && choice.message.content.length > 0) {
-                            finalText += choice.message.content[0].text;
-                            finalOutput.innerHTML = converter.makeHtml(finalText);
-                            // Show notification badge on output tab
-                            toggleNotificationBadge(outputTab, true);
+                            if (choice.message.content && choice.message.content.length > 0) {
+                                finalText += choice.message.content[0].text;
+                                finalOutput.innerHTML = converter.makeHtml(finalText);
+                                // Show notification badge on output tab
+                                toggleNotificationBadge(outputTab, true);
+                            }
                         }
                     }
                 }
             }
+        } catch (error) {
+            console.error('Error during inference:', error);
+            alert('Error during inference. Check console for details.');
+        } finally {
+            hideThinking(); // Ensure button is re-enabled after process finishes or errors
         }
-    });
+    };
 
     resetButton.addEventListener('click', async () => {
         // Clear UI elements

@@ -63,6 +63,12 @@
                                     <h5 class="card-title">③ 输入提示词</h5>
                                     <textarea id="prompt-input" class="form-control flex-grow-1" rows="3" placeholder="请在这里输入你的提示词……"></textarea>
                                     <div class="d-flex mt-2">
+                                        <div class="form-group mb-0 mr-2">
+                                            <select class="form-control" id="model-select">
+                                                <option value="gemini">Gemini</option>
+                                                <option value="dashscope">DashScope</option>
+                                            </select>
+                                        </div>
                                         <button id="run-button" class="btn btn-success">运行</button>
                                         <button id="reset-button" class="btn btn-danger ml-2">重置</button>
                                     </div>

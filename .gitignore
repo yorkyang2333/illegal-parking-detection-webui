@@ -5,7 +5,7 @@
 venv/
 
 # Cache directory
-dashscope_cache/
+frame_cache/
 
 # Python cache
 __pycache__/

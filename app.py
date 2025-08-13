@@ -4,30 +4,37 @@ import math
 import json
 import numpy as np
 import base64
-import dashscope
-from http import HTTPStatus
 import shutil
 from flask import Flask, render_template, request, jsonify, Response, send_from_directory
 from dotenv import dotenv_values
+import google.generativeai as genai
+from PIL import Image
+import dashscope
 
 app = Flask(__name__)
 
-# [TODO] 设置好自己的apikey and frame_cached_root path
 config = dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
-api_key = config.get("DASHSCOPE_API_KEY")
-if not api_key:
-    raise ValueError("Please set the DASHSCOPE_API_KEY environment variable in the .env file.")
 
-dashscope.api_key = api_key
-model_max_tokens = 30720  # DashScope模型的最大Token数
-frame_max_tokens = 16384  # DashScope模型每帧的最大Token数
-frame_cached_root = os.path.join(os.path.dirname(__file__), "dashscope_cache")
-app.config['FRAME_CACHED_ROOT'] = frame_cached_root # Store in app.config
+DASHSCOPE_API_KEY = config.get("DASHSCOPE_API_KEY")
+GEMINI_API_KEY = config.get("GEMINI_API_KEY")
+
+if DASHSCOPE_API_KEY:
+    dashscope.api_key = DASHSCOPE_API_KEY
+else:
+    print("DASHSCOPE_API_KEY not found in .env file. DashScope functionality may be limited.")
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    print("GEMINI_API_KEY not found in .env file. Gemini functionality may be limited.")
+
+frame_cached_root = os.path.join(os.path.dirname(__file__), "frame_cache")
+app.config['FRAME_CACHED_ROOT'] = frame_cached_root
 
 if not os.path.exists(frame_cached_root):
     os.makedirs(frame_cached_root)
 
-def encode_image(image_path):
+def encode_image_to_base64(image_path):
     with open(image_path, 'rb') as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
@@ -35,21 +42,6 @@ def cv_imread(file_path):
     cv_img = cv2.imdecode(np.fromfile(file_path, dtype=np.uint8), -1)
     return cv_img
 
-def token_calculate(image_height, image_width):
-    h_bar = round(image_height / 28) * 28
-    w_bar = round(image_width / 28) * 28
-    min_pixels = 28 * 28 * 4
-    max_pixels = 1280 * 28 * 28
-    if h_bar * w_bar > max_pixels:
-        beta = math.sqrt((image_height * image_width) / max_pixels)
-        h_bar = math.floor(image_height / beta / 28) * 28
-        w_bar = math.floor(image_width / beta / 28) * 28
-    elif h_bar * w_bar < min_pixels:
-        beta = math.sqrt(min_pixels / (image_height * image_width))
-        h_bar = math.ceil(image_height * beta / 28) * 28
-        w_bar = math.ceil(image_width * beta / 28) * 28
-    total_tokens = int((h_bar * w_bar) / (28 * 28)) + 2
-    return total_tokens
 
 @app.route('/')
 def index():
@@ -59,24 +51,45 @@ def index():
 def upload_video():
     # clear_cache() # Removed direct call, now handled by /clear_cache route
     if 'video' not in request.files:
+        print("DEBUG: No video file in request.files")
         return jsonify({'error': 'No video file provided'}), 400
     
     video_file = request.files['video']
     video_path = os.path.join(frame_cached_root, video_file.filename)
+    print(f"DEBUG: Saving video to: {video_path}")
     video_file.save(video_path)
 
     auto_mode = request.form.get('auto_mode', 'true').lower() == 'true'
     fix_fps = int(request.form.get('fps', 5))
     fix_frames = int(request.form.get('frames', 15))
 
-    frames_path, prompt = extract_video_frames(video_path, auto_mode, fix_fps, fix_frames)
+    frames_path, prompt_from_extraction = extract_video_frames(video_path, auto_mode, fix_fps, fix_frames)
+
+    print(f"DEBUG: frames_path from extraction: {frames_path}")
+    print(f"DEBUG: prompt_from_extraction: {prompt_from_extraction}")
 
     if not frames_path:
+        print("DEBUG: frames_path is empty or None, returning error")
         return jsonify({'error': 'Failed to process video'}), 500
+
+    # Ensure the prompt structure is correct for the frontend
+    # The frontend expects prompt[0].content[0].video to be the list of frame paths
+    # and prompt[0].content[1].text to be the user input (which is empty initially)
+    final_prompt_for_frontend = [
+        {
+            "role": "user",
+            "content": [
+                {"video": [os.path.basename(p) for p in frames_path]},
+                {"text" : ""}
+            ]
+        }
+    ]
+
+    print(f"DEBUG: final_prompt_for_frontend: {final_prompt_for_frontend}")
 
     return jsonify({
         'frames_path': [os.path.basename(p) for p in frames_path],
-        'prompt': prompt
+        'prompt': final_prompt_for_frontend
     })
 
 @app.route('/frames/<path:filename>')
@@ -88,84 +101,173 @@ def extract_video_frames(file_path, auto_mode=True, fix_fps=30, fix_frames=10):
     print(f"File path: {file_path}")
     cap = cv2.VideoCapture(file_path)
     if not cap.isOpened():
-        print(f"Error: 无法打开视频文件 at path: {file_path}")
+        print(f"DEBUG: Error: 无法打开视频文件 at path: {file_path}")
         return None, None
     
     fps = cap.get(cv2.CAP_PROP_FPS)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    print(f"DEBUG: Video properties - FPS: {fps}, Total Frames: {total_frames}, Width: {width}, Height: {height}")
     
-    total_tokens = token_calculate(height, width)
-    if total_tokens > frame_max_tokens:
-        print(f"视频分辨率过大, 超过每帧最大Token数({frame_max_tokens})")
-        return None, None
-    
-    max_frames = model_max_tokens // total_tokens
-    
+    frames_path = []
     prompt = [
         {
             "role": "user",
             "content": [
-                {"video": [], "fps": None},
+                {"video": []},
                 {"text" : ""}
             ]
         }
     ]
-    frames_path = []
 
     if auto_mode:
-        if max_frames > total_frames:
-            max_frames = total_frames
-        new_fps = fps * max_frames / total_frames
-        prompt[0]["content"][0]["fps"] = int(new_fps)
+        # For auto mode, we'll try to extract a reasonable number of frames
+        # For simplicity, let's aim for max 15 frames evenly distributed
+        target_frames = min(30, total_frames)
+        if target_frames == 0: # Handle case of very short videos
+            cap.release()
+            print("DEBUG: target_frames is 0, returning empty lists")
+            return [], []
+        
+        frame_interval = total_frames // target_frames
+        if frame_interval == 0: # Ensure at least one frame is captured if video is very short
+            frame_interval = 1
 
-        for frame_idx in range(max_frames):
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx * (total_frames // max_frames))
+        print(f"DEBUG: Auto mode - Target Frames: {target_frames}, Frame Interval: {frame_interval}")
+
+        for i in range(target_frames):
+            frame_idx = i * frame_interval
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
             ret, frame = cap.read()
             if not ret:
+                print(f"DEBUG: Could not read frame at index {frame_idx}")
                 continue
             frame_file = f"frame_{frame_idx:04d}.jpg"
             frame_file_path = os.path.join(frame_cached_root, frame_file)
             cv2.imwrite(frame_file_path, frame)
-            base64_image = encode_image(frame_file_path)
-            prompt[0]["content"][0]["video"].append(f"data:image/jpeg;base64,{base64_image}")
             frames_path.append(frame_file_path)
+            print(f"DEBUG: Extracted frame: {frame_file_path}")
     else:
         if fix_fps <= 0 or fix_frames <= 0:
+            print("DEBUG: fix_fps or fix_frames is <= 0, returning None, None")
             return None, None
-        frames_per_second = math.ceil(fps / fix_fps) # Corrected calculation
+        
+        frames_per_second = math.ceil(fps / fix_fps)
         max_fix_frames = min(fix_frames, total_frames // frames_per_second)
-        prompt[0]["content"][0]["fps"] = int(fix_fps)
-        if max_fix_frames > max_frames:
-            return None, None
+
+        print(f"DEBUG: Manual mode - Frames per second: {frames_per_second}, Max Fix Frames: {max_fix_frames}")
 
         for frame_idx in range(max_fix_frames):
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx * frames_per_second)
             ret, frame = cap.read()
             if not ret:
+                print(f"DEBUG: Could not read frame at index {frame_idx * frames_per_second}")
                 continue
             frame_file = f"frame_{frame_idx:04d}.jpg"
             frame_file_path = os.path.join(frame_cached_root, frame_file)
             cv2.imwrite(frame_file_path, frame)
-            prompt[0]["content"][0]["video"].append(f"{frame_file_path}") # Changed to file path
             frames_path.append(frame_file_path)
+            print(f"DEBUG: Extracted frame: {frame_file_path}")
 
     cap.release()
+    print(f"DEBUG: Finished extract_video_frames. Returning {len(frames_path)} frames.")
     return frames_path, prompt
 
 @app.route('/run', methods=['POST'])
 def run_inference():
     data = request.get_json()
-    prompt = data.get('prompt')
-    
-    if not prompt:
-        return jsonify({'error': 'Invalid prompt'}), 400
+    prompt_data = data.get('prompt')
+    selected_model = data.get('model')
+
+    print(f"DEBUG: run_inference called. Selected model: {selected_model}")
+    print(f"DEBUG: Prompt data received: {prompt_data}")
+
+    if not prompt_data or not selected_model:
+        print("DEBUG: Invalid prompt or model received.")
+        return jsonify({'error': 'Invalid prompt or model'}), 400
+
+    # Extract user input and frames_path from the prompt_data
+    user_input = prompt_data[0]['content'][1]['text']
+    frames_path = []
+    # The frames are now stored as file paths in the frontend's prompt structure
+    # We need to extract them from the video field, which now contains file paths
+    if 'video' in prompt_data[0]['content'][0]:
+        frames_path = prompt_data[0]['content'][0]['video']
+
+    print(f"DEBUG: User input: {user_input}")
+    print(f"DEBUG: Frames paths: {frames_path}")
 
     def event_stream():
-        responses = dashscope.MultiModalConversation.call(model='qvq-max-latest', messages=prompt, stream=True, incremental_output=True)
-        for response in responses:
-            yield f"data: {json.dumps(response)}\n\n"
+        if selected_model == 'dashscope':
+            print("DEBUG: DashScope model selected.")
+            if not DASHSCOPE_API_KEY:
+                print("DEBUG: DashScope API Key not configured.")
+                yield f"data: {json.dumps({'text': 'Error: DashScope API Key not configured.'})}\n\n"
+                return
+            # For DashScope, we need to convert image paths back to base64
+            dashscope_prompt_content = []
+            for frame_path_basename in frames_path:
+                full_frame_path = os.path.join(frame_cached_root, frame_path_basename)
+                dashscope_prompt_content.append({"image": encode_image_to_base64(full_frame_path)})
+            dashscope_prompt_content.append({"text": user_input})
+
+            dashscope_messages = [
+                {
+                    "role": "user",
+                    "content": dashscope_prompt_content
+                }
+            ]
+            print(f"DEBUG: Calling DashScope with messages: {dashscope_messages}")
+            responses = dashscope.MultiModalConversation.call(model='qwen-vl-plus', messages=dashscope_messages, stream=True, incremental_output=True)
+            for response in responses:
+                print(f"DEBUG: DashScope response chunk: {response}")
+                # DashScope response already has the expected structure
+                yield f"data: {json.dumps(response)}\n\n"
+        elif selected_model == 'gemini':
+            print("DEBUG: Gemini model selected.")
+            if not GEMINI_API_KEY:
+                print("DEBUG: Gemini API Key not configured.")
+                yield f"data: {json.dumps({'text': 'Error: Gemini API Key not configured.'})}\n\n"
+                return
+            
+            gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+            gemini_prompt_parts = []
+
+            for frame_path_basename in frames_path:
+                full_frame_path = os.path.join(frame_cached_root, frame_path_basename)
+                try:
+                    img = Image.open(full_frame_path)
+                    gemini_prompt_parts.append(img)
+                    print(f"DEBUG: Added image {full_frame_path} to Gemini prompt.")
+                except Exception as e:
+                    print(f"DEBUG: Error loading image {full_frame_path}: {e}")
+                    continue
+            
+            gemini_prompt_parts.append(user_input)
+            print(f"DEBUG: Calling Gemini with prompt parts: {gemini_prompt_parts}")
+            responses = gemini_model.generate_content(gemini_prompt_parts, stream=True)
+            for chunk in responses:
+                print(f"DEBUG: Gemini response chunk: {chunk.text}")
+                # Construct a response that mimics DashScope's structure for frontend compatibility
+                formatted_response = {
+                    "output": {
+                        "choices": [
+                            {
+                                "message": {
+                                    "content": [
+                                        {"text": chunk.text.strip()}
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+                yield f"data: {json.dumps(formatted_response)}\n\n"
+        else:
+            print("DEBUG: Invalid model selected.")
+            yield f"data: {json.dumps({'text': 'Error: Invalid model selected.'})}\n\n"
 
     return Response(event_stream(), mimetype='text/event-stream')
 
