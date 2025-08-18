@@ -169,8 +169,8 @@ h1 {
 
 #sidebar {
     width: var(--sidebar-width-collapsed);
-    background-color: #2c3e50; /* Dark background */
-    color: white;
+    background-color: #f8f9fa; /* A slightly different light color */
+    color: #333; /* Darker text */
     padding-top: 20px;
     transition: width 0.3s ease;
     overflow-x: hidden; /* Hide text when collapsed */
@@ -179,6 +179,7 @@ h1 {
     left: 0;
     top: 0;
     z-index: 1000; /* Ensure it's above other content */
+    box-shadow: 0 0 10px rgba(0,0,0,0.1); /* Add a subtle shadow */
 }
 
 #sidebar:hover {
@@ -195,7 +196,7 @@ h1 {
     display: flex;
     align-items: center;
     padding: 15px 18px; /* Changed padding */
-    color: white;
+    color: #333; /* Darker text */
     text-decoration: none;
     white-space: nowrap; /* Prevent text wrapping */
     /* Removed justify-content: center; */
@@ -203,7 +204,7 @@ h1 {
 }
 
 #sidebar ul li a:hover {
-    background-color: #34495e; /* Slightly lighter on hover */
+    background-color: #e4e6eb; /* Lighter hover */
 }
 
 #sidebar ul li a i {
@@ -237,16 +238,22 @@ h1 {
 }
 
 .page {
-    display: none; /* Hidden by default */
+    display: none;
     height: 100%; /* Fill parent height */
     width: 100%; /* Fill parent width */
     flex-grow: 1;
-    display: flex;
     flex-direction: column;
 }
 
 .page.active {
-    display: block; /* Show active page */
+    display: flex; /* Show active page */
+}
+
+#input-page iframe {
+    flex-grow: 1;
+    border: none;
+    width: 100%;
+    z-index: 1;
 }
 
 #output-page .container-fluid {
@@ -344,3 +351,11 @@ h1 {
 .nav-tabs .nav-link {
     position: relative; /* Added for badge positioning */
 }
+
+.sidebar-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 15px;
+}
+
+

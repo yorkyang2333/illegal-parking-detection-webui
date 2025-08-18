@@ -1,34 +1,34 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const uploadForm = document.getElementById('upload-form');
-    const videoFile = document.getElementById('video-file');
-    const dropZone = document.getElementById('drop-zone');
-    const frameImage = document.getElementById('frame-image');
-    const prevFrameButton = document.getElementById('prev-frame');
-    const nextFrameButton = document.getElementById('next-frame');
-    const frameCounter = document.getElementById('frame-counter');
     const runButton = document.getElementById('run-button');
     const promptInput = document.getElementById('prompt-input');
-    const thinkingOutput = document.getElementById('thinking-output');
+    
     const finalOutput = document.getElementById('final-output');
     const resetButton = document.getElementById('reset-button');
     const converter = new showdown.Converter();
 
-    let frames = [];
-    let currentFrame = 0;
-    let prompt = null;
+    const PREFILLED_PROMPT_TEXT = `现有一段违停的分析报告：
+[粘贴Gemini生成的违停分析报告]
+由QVQ-Max重新识别了车牌号为：
+[粘贴QVQ-Max识别到的车牌号]
+请帮我把QVQ-Max识别到的车牌号替换报告中原先识别到的车牌号，依据且仅依据原报告中的内容，重新生成一份详尽违停报告。请依次输出：
+1.违停车辆车牌号
+2.该车辆违停原因（根据原分析报告中的内容进一步总结得出）
+3.建议处罚（根据现行《中华人民共和国道路交通安全法》）
+请确保仅按照原报告中的内容进行重新输出，保证格式清晰明确，逻辑性强，不要主观臆断。`;
 
-    // Helper functions for thinking state
-    function showThinking() {
-        runButton.textContent = '思考中...';
-        runButton.disabled = true;
-        thinkingOutput.innerHTML = ''; // Clear previous thinking output
-        finalOutput.innerHTML = ''; // Clear previous final output
-    }
+    let prompt = [
+        {
+            "role": "user",
+            "content": [
+                {"video": []},
+                {"text" : ""}
+            ]
+        }
+    ];
 
-    function hideThinking() {
-        runButton.textContent = '运行';
-        runButton.disabled = false;
-    }
+    
+
+    
 
     // Helper function to add/remove notification badge
     function toggleNotificationBadge(element, show, targetElementSelector = null) {
@@ -51,94 +51,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Handle drag and drop
-    dropZone.addEventListener('click', () => {
-        console.log("Drop zone clicked!");
-        videoFile.click();
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('highlight');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('highlight');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('highlight');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            videoFile.files = files;
-            uploadForm.dispatchEvent(new Event('submit'));
-        }
-    });
-
-    videoFile.addEventListener('change', () => {
-        if (videoFile.files.length > 0) {
-            uploadForm.dispatchEvent(new Event('submit'));
-        }
-    });
-
-    uploadForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const formData = new FormData(uploadForm);
-        const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            frames = data.frames_path;
-            prompt = data.prompt;
-            currentFrame = 0;
-            updateFrame();
-
-            // Update dropZone content
-            dropZone.querySelector('.upload-content').style.display = 'none';
-            dropZone.querySelector('.done-content').style.display = 'block';
-
-        } else {
-            alert('Error uploading video.');
-        }
-    });
-
-    function updateFrame() {
-        if (frames.length > 0) {
-            const timestamp = new Date().getTime();
-            frameImage.src = `/frames/${frames[currentFrame]}?t=${timestamp}`;
-            frameCounter.textContent = `${currentFrame + 1} / ${frames.length}`;
-        }
-    }
-
-    prevFrameButton.addEventListener('click', () => {
-        if (currentFrame > 0) {
-            currentFrame--;
-            updateFrame();
-        }
-    });
-
-    nextFrameButton.addEventListener('click', () => {
-        if (currentFrame < frames.length - 1) {
-            currentFrame++;
-            updateFrame();
-        }
-    });
-
     runButton.addEventListener('click', () => {
         console.log("Run button clicked!");
-        console.log("Current prompt value:", prompt);
         runInference(prompt, promptInput.value);
     });
 
     const runInference = async (initialPrompt, user_input) => {
-        showThinking();
-        const finalPrompt = JSON.parse(JSON.stringify(initialPrompt));
+            runButton.textContent = '思考中...';
+        runButton.disabled = true;
+        finalOutput.innerHTML = ''; // Clear previous final output
+            const finalPrompt = JSON.parse(JSON.stringify(initialPrompt));
         finalPrompt[0].content[1].text = user_input;
-        const selectedModel = document.getElementById('model-select').value;
+        const selectedModel = 'dashscope';
 
         try {
             const response = await fetch('/run', {
@@ -151,9 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let thinkingText = '';
             let finalText = '';
-            let reasoningStarted = false;
 
             while (true) {
                 const { value, done } = await reader.read();
@@ -167,21 +89,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         const data = JSON.parse(line.substring(5));
                         if (data.output && data.output.choices && data.output.choices.length > 0) {
                             const choice = data.output.choices[0];
-                            if (choice.message.reasoning_content) {
-                                thinkingText += choice.message.reasoning_content;
-                                thinkingOutput.innerHTML = converter.makeHtml(thinkingText);
-                                if (!reasoningStarted) {
-                                    runButton.textContent = '完成！'; // This will be replaced by hideThinking
-                                    reasoningStarted = true;
-                                    // Show notification badge on output page link
-                                    toggleNotificationBadge(outputLink, true, 'i');
-                                }
-                            }
+                            
                             if (choice.message.content && choice.message.content.length > 0) {
                                 finalText += choice.message.content[0].text;
                                 finalOutput.innerHTML = converter.makeHtml(finalText);
                                 // Show notification badge on output tab
-                                toggleNotificationBadge(outputTab, true);
+                                
                             }
                         }
                     }
@@ -191,55 +104,32 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error during inference:', error);
             alert('Error during inference. Check console for details.');
         } finally {
-            hideThinking(); // Ensure button is re-enabled after process finishes or errors
+            runButton.textContent = '运行';
+            runButton.disabled = false; // Ensure button is re-enabled after process finishes or errors
         }
     };
 
     resetButton.addEventListener('click', async () => {
         // Clear UI elements
-        videoFile.value = '';
-        frameImage.src = '';
-        frameCounter.textContent = '';
-        promptInput.value = '';
-        thinkingOutput.textContent = '';
+        promptInput.value = PREFILLED_PROMPT_TEXT;
         finalOutput.textContent = '';
-        frames = [];
-        currentFrame = 0;
-        prompt = null;
 
         // Reset run button
         runButton.textContent = '运行';
         runButton.disabled = false;
-
-        // Reset dropZone content
-        dropZone.querySelector('.upload-content').style.display = 'block';
-        dropZone.querySelector('.done-content').style.display = 'none';
-
-        // Send request to clear cache
-        try {
-            const response = await fetch('/clear_cache', {
-                method: 'POST'
-            });
-            if (response.ok) {
-                console.log('Cache cleared successfully.');
-            } else {
-                console.error('Failed to clear cache.');
-            }
-        } catch (error) {
-            console.error('Error clearing cache:', error);
-        }
     });
+
 
     const inputLink = document.getElementById('input-link');
     const outputLink = document.getElementById('output-link');
     const inputPage = document.getElementById('input-page');
     const outputPage = document.getElementById('output-page');
-    const outputTab = document.getElementById('output-tab'); // Get reference to output tab
+    
 
     function showPage(pageToShow) {
         // Hide all pages
-        inputPage.style.display = 'none';
-        outputPage.style.display = 'none';
+        inputPage.classList.remove('active');
+        outputPage.classList.remove('active');
 
         // Remove active class from all links
         inputLink.classList.remove('active');
@@ -247,17 +137,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Show the selected page and set active link
         if (pageToShow === 'input') {
-            inputPage.style.display = 'block';
+            inputPage.classList.add('active');
             inputLink.classList.add('active');
         } else if (pageToShow === 'output') {
-            outputPage.style.display = 'block';
+            outputPage.classList.add('active');
             outputLink.classList.add('active');
         }
-        
     }
 
     // Initial page load
     showPage('input');
+    promptInput.value = PREFILLED_PROMPT_TEXT;
 
     inputLink.addEventListener('click', (e) => {
         e.preventDefault();
@@ -270,40 +160,5 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleNotificationBadge(outputLink, false, 'i'); // Reset badge on click
     });
 
-    outputTab.addEventListener('click', () => {
-        toggleNotificationBadge(outputTab, false); // Reset badge on click
-    });
-
-});
-
-function equalizeCardHeights(className) {
-    let cards = document.getElementsByClassName(className);
-    let maxHeight = 0;
-
-    // Reset heights first
-    for (let i = 0; i < cards.length; i++) {
-        cards[i].style.height = 'auto';
-    }
-
-    // Find the max height
-    for (let i = 0; i < cards.length; i++) {
-        if (cards[i].offsetHeight > maxHeight) {
-            maxHeight = cards[i].offsetHeight;
-        }
-    }
-
-    // Set all cards to the max height
-    for (let i = 0; i < cards.length; i++) {
-        cards[i].style.height = maxHeight + 'px';
-    }
-}
-
-window.addEventListener('load', function() {
-    // equalizeCardHeights('card-row-1'); // Removed to allow CSS to control height
-    equalizeCardHeights('card-row-2');
-});
-
-window.addEventListener('resize', function() {
-    // equalizeCardHeights('card-row-1'); // Removed to allow CSS to control height
-    equalizeCardHeights('card-row-2');
+    
 });
