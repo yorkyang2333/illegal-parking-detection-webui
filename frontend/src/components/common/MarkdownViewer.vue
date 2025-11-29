@@ -65,6 +65,7 @@ watch(() => props.content, async () => {
     padding: 2px 4px;
     border-radius: 3px;
     font-family: 'Courier New', monospace;
+    word-break: break-word;
   }
 
   :deep(pre) {
@@ -72,6 +73,96 @@ watch(() => props.content, async () => {
     padding: 10px;
     border-radius: 5px;
     overflow-x: auto;
+    max-width: 100%;
+
+    code {
+      word-break: normal;
+      white-space: pre;
+    }
+  }
+
+  :deep(table) {
+    width: 100%;
+    border-collapse: collapse;
+    overflow-x: auto;
+    display: block;
+    max-width: 100%;
+
+    th,
+    td {
+      border: 1px solid #e0e0e0;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f4f4f4;
+      font-weight: 600;
+    }
+  }
+
+  :deep(img) {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* 响应式设计 */
+
+/* 移动端 (<768px) */
+@media (max-width: 767px) {
+  .markdown-viewer {
+    padding: 15px;
+    font-size: 13px;
+    max-height: 500px;
+
+    :deep(h1) {
+      font-size: 1.5em;
+    }
+
+    :deep(h2) {
+      font-size: 1.3em;
+    }
+
+    :deep(h3) {
+      font-size: 1.1em;
+    }
+
+    :deep(pre) {
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    :deep(table) {
+      font-size: 12px;
+
+      th,
+      td {
+        padding: 6px;
+      }
+    }
+
+    :deep(ul),
+    :deep(ol) {
+      margin-left: 15px;
+      padding-left: 5px;
+    }
+  }
+}
+
+/* 平板 (768px-1024px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .markdown-viewer {
+    padding: 18px;
+    font-size: 13px;
+  }
+}
+
+/* 桌面 (>=1024px) - 保持原有样式 */
+@media (min-width: 1024px) {
+  .markdown-viewer {
+    padding: 20px;
+    font-size: 14px;
   }
 }
 </style>

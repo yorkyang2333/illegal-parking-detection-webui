@@ -1,23 +1,39 @@
 import os
 import json
-from flask import Flask, render_template, request, jsonify, Response
+import secrets
+from flask import Flask, render_template, request, jsonify, Response, session
 from flask_cors import CORS
 from dotenv import dotenv_values
 import dashscope
 from PIL import Image
+from database import init_db
+from routes.auth import auth_bp, login_required
 
 app = Flask(__name__)
 
-# Enable CORS for frontend development
+# Load environment variables
+config = dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
+
+# Configure secret key for sessions
+app.config['SECRET_KEY'] = config.get('SECRET_KEY', secrets.token_hex(32))
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+
+# Enable CORS for frontend development with credentials support
 CORS(app, resources={
     r"/*": {
         "origins": ["http://localhost:3000", "http://localhost:5173"],
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
+        "allow_headers": ["Content-Type"],
+        "supports_credentials": True
     }
 })
 
-config = dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
+# Initialize database
+init_db(app)
+
+# Register authentication blueprint
+app.register_blueprint(auth_bp)
 
 DASHSCOPE_API_KEY = config.get("DASHSCOPE_API_KEY")
 
@@ -33,7 +49,8 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/run', methods=['POST', 'OPTIONS'])
+@app.route('/api/run', methods=['POST', 'OPTIONS'])
+@login_required
 def run_inference():
     # Handle preflight requests
     if request.method == 'OPTIONS':

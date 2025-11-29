@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useSSE } from '@/composables/useSSE'
-import { useUiStore } from './useUiStore'
-import type { InferenceRequest } from '@/api/types'
+import { useAuthStore } from './useAuthStore'
+import router from '@/router'
+import type { InferenceRequest, PromptMessage } from '@/api/types'
 
 const DEFAULT_PROMPT = `现有一段违停的分析报告：
 [粘贴Gemini生成的违停分析报告]
@@ -15,8 +16,6 @@ const DEFAULT_PROMPT = `现有一段违停的分析报告：
 请确保仅按照原报告中的内容进行重新输出，保证格式清晰明确，逻辑性强，不要主观臆断。`
 
 export const useInferenceStore = defineStore('inference', () => {
-  const uiStore = useUiStore()
-
   // State
   const userInput = ref(DEFAULT_PROMPT)
   const streamingOutput = ref('')
@@ -26,12 +25,12 @@ export const useInferenceStore = defineStore('inference', () => {
   // Computed
   const hasOutput = computed(() => streamingOutput.value.length > 0)
 
-  const formattedPrompt = computed(() => {
+  const formattedPrompt = computed((): PromptMessage[] => {
     return [
       {
         role: 'user' as const,
         content: [
-          { video: [] },
+          { video: [] as unknown[] },
           { text: userInput.value }
         ]
       }
@@ -49,13 +48,20 @@ export const useInferenceStore = defineStore('inference', () => {
         streamingOutput.value += text
       }
     },
-    onError: (err) => {
-      error.value = err.message
+    onError: (err: any) => {
+      // Handle 401 Unauthorized - redirect to login
+      if (err.status === 401) {
+        const authStore = useAuthStore()
+        authStore.clearError()
+        error.value = '登录已过期，请重新登录'
+        router.push('/login')
+      } else {
+        error.value = err.message
+      }
       isStreaming.value = false
     },
     onComplete: () => {
       isStreaming.value = false
-      uiStore.showOutputNotification()
     }
   })
 

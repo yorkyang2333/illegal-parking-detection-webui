@@ -20,12 +20,23 @@ export function useSSE(url: string, options: UseSSEOptions) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        credentials: 'include', // Include cookies for session authentication
         signal: abortController.value.signal
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Request failed')
+        // Create custom error with status code
+        const error: any = new Error()
+        error.status = response.status
+
+        try {
+          const errorData = await response.json()
+          error.message = errorData.error || 'Request failed'
+        } catch {
+          error.message = `Request failed with status ${response.status}`
+        }
+
+        throw error
       }
 
       // Read stream

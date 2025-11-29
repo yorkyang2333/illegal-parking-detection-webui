@@ -1,5 +1,6 @@
 <template>
-  <div class="input-page">
+  <AppLayout>
+    <div class="input-page">
     <h1 class="page-title">基于多模态大模型的校园返校时段车辆违停感知与优化研究</h1>
 
     <el-card class="input-card">
@@ -41,18 +42,20 @@
       </div>
     </el-card>
   </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
+import AppLayout from '@/components/layout/AppLayout.vue'
 import { useInferenceStore } from '@/stores/useInferenceStore'
-import { useUiStore } from '@/stores/useUiStore'
+import { useRouter } from 'vue-router'
 
 const inferenceStore = useInferenceStore()
-const uiStore = useUiStore()
+const router = useRouter()
 
 async function handleRun() {
   await inferenceStore.startInference()
-  uiStore.navigateToPage('output')
+  router.push('/output')
 }
 
 function handleReset() {
@@ -73,6 +76,7 @@ function handleReset() {
   font-weight: 700;
   font-size: 24px;
   margin-bottom: 30px;
+  transition: font-size 0.3s ease;
 }
 
 .input-card {
@@ -117,5 +121,57 @@ function handleReset() {
 .button-group {
   display: flex;
   gap: 10px;
+}
+
+/* 响应式设计 */
+
+/* 移动端 (<768px) */
+@media (max-width: 767px) {
+  .page-title {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
+  .input-card {
+    border-radius: 8px;
+    min-height: auto;
+
+    &:hover {
+      transform: none;
+    }
+  }
+
+  .prompt-textarea {
+    :deep(.el-textarea__inner) {
+      font-size: 13px;
+    }
+  }
+
+  .button-group {
+    flex-direction: column;
+
+    :deep(.el-button) {
+      width: 100%;
+    }
+  }
+}
+
+/* 平板 (768px-1024px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .page-title {
+    font-size: 20px;
+    margin-bottom: 25px;
+  }
+
+  .input-card {
+    min-height: 500px;
+  }
+}
+
+/* 桌面 (>=1024px) - 保持原有样式 */
+@media (min-width: 1024px) {
+  .page-title {
+    font-size: 24px;
+  }
 }
 </style>

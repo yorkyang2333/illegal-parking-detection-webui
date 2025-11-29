@@ -30,3 +30,32 @@ export interface SSEResponseChunk {
 export interface ErrorResponse {
   error: string
 }
+
+// Authentication Types
+export interface User {
+  id: number
+  username: string
+  email: string
+  created_at: string
+  is_active: boolean
+}
+
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+export interface RegisterRequest {
+  username: string
+  email: string
+  password: string
+}
+
+export interface AuthResponse {
+  message: string
+  user?: User
+}
+
+export interface UserResponse {
+  user: User
+}

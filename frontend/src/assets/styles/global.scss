@@ -30,6 +30,7 @@ body {
   font-family: 'Roboto', sans-serif;
   background-color: var(--content-bg-color);
   color: var(--text-color);
+  overflow-x: hidden;
 }
 
 #app {
@@ -76,4 +77,81 @@ body {
   font-family: 'Roboto', sans-serif;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.el-input {
+  font-family: 'Roboto', sans-serif;
+}
+
+/* 响应式辅助类 */
+.mobile-only {
+  display: none;
+
+  @media (max-width: 767px) {
+    display: block;
+  }
+}
+
+.tablet-up {
+  display: none;
+
+  @media (min-width: 768px) {
+    display: block;
+  }
+}
+
+.desktop-only {
+  display: none;
+
+  @media (min-width: 1024px) {
+    display: block;
+  }
+}
+
+/* 响应式 Element Plus 组件优化 */
+
+/* 移动端 */
+@media (max-width: 767px) {
+  .el-card {
+    border-radius: 8px;
+    margin: 0;
+  }
+
+  .el-button {
+    font-size: 14px;
+    padding: 10px 15px;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    font-size: 16px; /* 防止 iOS Safari 放大 */
+  }
+
+  .el-alert {
+    padding: 10px;
+
+    .el-alert__title {
+      font-size: 14px;
+    }
+  }
+
+  .el-empty {
+    padding: 30px 20px;
+
+    .el-empty__description {
+      font-size: 13px;
+    }
+  }
+}
+
+/* 平板 */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .el-button {
+    font-size: 14px;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    font-size: 14px;
+  }
 }

@@ -1,18 +1,43 @@
 <template>
-  <AppLayout>
-    <InputPage v-if="uiStore.currentPage === 'input'" />
-    <OutputPage v-if="uiStore.currentPage === 'output'" />
-  </AppLayout>
+  <div v-if="isLoading" class="loading-screen">
+    <el-icon class="is-loading" :size="40"><Loading /></el-icon>
+    <p>加载中...</p>
+  </div>
+  <router-view v-else />
 </template>
 
 <script setup lang="ts">
-import AppLayout from '@/components/layout/AppLayout.vue'
-import InputPage from '@/views/InputPage.vue'
-import OutputPage from '@/views/OutputPage.vue'
-import { useUiStore } from '@/stores/useUiStore'
+import { ref, onMounted } from 'vue'
+import { Loading } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/useAuthStore'
 
-const uiStore = useUiStore()
+const authStore = useAuthStore()
+const isLoading = ref(true)
+
+onMounted(async () => {
+  // Check authentication status on app startup
+  await authStore.checkAuth()
+  isLoading.value = false
+})
 </script>
 
 <style scoped lang="scss">
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: var(--content-bg-color);
+  color: var(--primary-color);
+
+  .el-icon {
+    margin-bottom: 20px;
+  }
+
+  p {
+    font-size: 16px;
+    font-weight: 500;
+  }
+}
 </style>

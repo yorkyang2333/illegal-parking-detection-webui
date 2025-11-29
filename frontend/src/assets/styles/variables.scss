@@ -14,4 +14,9 @@
 
   /* Shadows */
   --card-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+
+  /* 响应式断点 */
+  --breakpoint-mobile: 768px;
+  --breakpoint-tablet: 1024px;
+  --breakpoint-desktop: 1440px;
 }
