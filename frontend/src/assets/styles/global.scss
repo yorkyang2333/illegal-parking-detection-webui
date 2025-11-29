@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+/* CSS Variables */
+:root {
+  /* Sidebar */
+  --sidebar-width-collapsed: 60px;
+  --sidebar-width-expanded: 200px;
+  --sidebar-bg-color: #f8f9fa;
+
+  /* Colors */
+  --primary-color: #1877f2;
+  --success-color: #28a745;
+  --danger-color: #dc3545;
+  --content-bg-color: #f0f2f5;
+  --text-color: #333;
+
+  /* Shadows */
+  --card-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--content-bg-color);
+  color: var(--text-color);
+}
+
+#app {
+  height: 100%;
+}
+
+/* Element Plus Customization */
+.el-card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+
+  .el-card__header {
+    border-bottom: 1px solid #e0e0e0;
+  }
+}
+
+.el-button {
+  border-radius: 6px;
+  font-weight: 500;
+
+  &--success {
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+
+    &:hover {
+      background-color: #218838;
+      border-color: #218838;
+    }
+  }
+
+  &--danger {
+    background-color: var(--danger-color);
+    border-color: var(--danger-color);
+
+    &:hover {
+      background-color: #c82333;
+      border-color: #c82333;
+    }
+  }
+}
+
+.el-textarea__inner {
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}

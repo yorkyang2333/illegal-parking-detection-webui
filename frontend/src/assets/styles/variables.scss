@@ -1,0 +1,17 @@
+/* CSS Variables */
+:root {
+  /* Sidebar */
+  --sidebar-width-collapsed: 60px;
+  --sidebar-width-expanded: 200px;
+  --sidebar-bg-color: #f8f9fa;
+
+  /* Colors */
+  --primary-color: #1877f2;
+  --success-color: #28a745;
+  --danger-color: #dc3545;
+  --content-bg-color: #f0f2f5;
+  --text-color: #333;
+
+  /* Shadows */
+  --card-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+}

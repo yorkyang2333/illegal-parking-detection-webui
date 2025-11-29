@@ -1,11 +1,21 @@
 import os
 import json
 from flask import Flask, render_template, request, jsonify, Response
+from flask_cors import CORS
 from dotenv import dotenv_values
 import dashscope
 from PIL import Image
 
 app = Flask(__name__)
+
+# Enable CORS for frontend development
+CORS(app, resources={
+    r"/*": {
+        "origins": ["http://localhost:3000", "http://localhost:5173"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 config = dotenv_values(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -23,8 +33,12 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/run', methods=['POST'])
+@app.route('/run', methods=['POST', 'OPTIONS'])
 def run_inference():
+    # Handle preflight requests
+    if request.method == 'OPTIONS':
+        return '', 204
+
     data = request.get_json()
     prompt_data = data.get('prompt')
     selected_model = data.get('model')
@@ -95,4 +109,4 @@ def run_inference():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5001, host='0.0.0.0')

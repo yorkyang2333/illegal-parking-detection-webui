@@ -1,15 +1,44 @@
 # Environment variables
 .env
+backend/.env
 
 # Virtual environment
 venv/
+backend/venv/
 
 # Cache directory
 frame_cache/
+backend/frame_cache/
 
 # Python cache
 __pycache__/
 *.pyc
 
+# Node.js dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
+dist/
+frontend/dist/
+
+# Frontend cache
+.vite/
+frontend/.vite/
+
+# Log files
+*.log
+npm-debug.log*
+
 # OS-specific files
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# CLI
+.claude/
