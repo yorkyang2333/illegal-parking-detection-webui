@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { loginApi, registerApi, logoutApi, getMeApi } from '@/api/auth'
+import { loginApi, registerApi, logoutApi, getMeApi, updateProfileApi } from '@/api/auth'
 import type { User } from '@/api/types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -86,6 +86,23 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function updateProfile(username: string, email: string, password?: string) {
+    try {
+      isLoading.value = true
+      error.value = null
+
+      const response = await updateProfileApi(username, email, password)
+      user.value = response.user
+
+      return true
+    } catch (err: unknown) {
+      error.value = err instanceof Error ? err.message : '更新失败'
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   function clearError() {
     error.value = null
   }
@@ -102,6 +119,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     logout,
     checkAuth,
+    updateProfile,
     clearError,
   }
 })

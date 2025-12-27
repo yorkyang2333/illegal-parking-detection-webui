@@ -10,6 +10,10 @@ echo -e "${BLUE}  Vehicle Parking Violation Detection${NC}"
 echo -e "${BLUE}  Starting Application...${NC}"
 echo -e "${BLUE}========================================${NC}"
 
+# Get the script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 # Check Node.js
 if ! command -v node &> /dev/null; then
     echo -e "${RED}Error: Node.js not installed${NC}"
@@ -25,7 +29,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Backend setup
-cd backend
+cd "$PROJECT_ROOT/backend" || { echo -e "${RED}Error: backend directory not found${NC}"; exit 1; }
 
 if [ ! -f .env ]; then
     echo -e "${RED}Error: .env file not found in backend directory${NC}"
@@ -54,7 +58,7 @@ else
 fi
 
 # Frontend setup
-cd ../frontend
+cd "$PROJECT_ROOT/frontend" || { echo -e "${RED}Error: frontend directory not found${NC}"; kill $BACKEND_PID 2>/dev/null; exit 1; }
 
 echo -e "${GREEN}[3/4] Installing Node.js dependencies...${NC}"
 npm install > /dev/null 2>&1

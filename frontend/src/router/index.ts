@@ -2,15 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import LoginPage from '@/views/LoginPage.vue'
 import RegisterPage from '@/views/RegisterPage.vue'
-import InputPage from '@/views/InputPage.vue'
-import OutputPage from '@/views/OutputPage.vue'
+import ChatPage from '@/views/ChatPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      redirect: '/input',
+      redirect: '/chat',
     },
     {
       path: '/login',
@@ -25,15 +24,9 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
-      path: '/input',
-      name: 'input',
-      component: InputPage,
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/output',
-      name: 'output',
-      component: OutputPage,
+      path: '/chat',
+      name: 'chat',
+      component: ChatPage,
       meta: { requiresAuth: true },
     },
   ],
@@ -48,8 +41,8 @@ router.beforeEach((to, _from, next) => {
     // Redirect to login if not authenticated
     next({ name: 'login' })
   } else if (!requiresAuth && authStore.isAuthenticated && (to.name === 'login' || to.name === 'register')) {
-    // Redirect to input if already logged in and trying to access login/register
-    next({ name: 'input' })
+    // Redirect to chat if already logged in and trying to access login/register
+    next({ name: 'chat' })
   } else {
     next()
   }

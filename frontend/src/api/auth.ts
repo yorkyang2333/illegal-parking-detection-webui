@@ -82,3 +82,34 @@ export async function getMeApi(): Promise<UserResponse> {
 
   return response.json()
 }
+
+/**
+ * Update user profile
+ */
+export async function updateProfileApi(
+  username: string,
+  email: string,
+  password?: string
+): Promise<UserResponse> {
+  const body: { username: string; email: string; password?: string } = { username, email }
+  if (password) {
+    body.password = password
+  }
+
+  const response = await fetch(`${API_BASE}/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || '更新失败')
+  }
+
+  return response.json()
+}
+
