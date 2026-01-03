@@ -2,14 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import LoginPage from '@/views/LoginPage.vue'
 import RegisterPage from '@/views/RegisterPage.vue'
-import ChatPage from '@/views/ChatPage.vue'
+import AnalysisPage from '@/views/AnalysisPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      redirect: '/chat',
+      redirect: '/analysis',
     },
     {
       path: '/login',
@@ -24,10 +24,15 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
-      path: '/chat',
-      name: 'chat',
-      component: ChatPage,
+      path: '/analysis',
+      name: 'analysis',
+      component: AnalysisPage,
       meta: { requiresAuth: true },
+    },
+    // 兼容旧的 /chat 路由
+    {
+      path: '/chat',
+      redirect: '/analysis',
     },
   ],
 })
@@ -41,11 +46,12 @@ router.beforeEach((to, _from, next) => {
     // Redirect to login if not authenticated
     next({ name: 'login' })
   } else if (!requiresAuth && authStore.isAuthenticated && (to.name === 'login' || to.name === 'register')) {
-    // Redirect to chat if already logged in and trying to access login/register
-    next({ name: 'chat' })
+    // Redirect to analysis if already logged in and trying to access login/register
+    next({ name: 'analysis' })
   } else {
     next()
   }
 })
 
 export default router
+

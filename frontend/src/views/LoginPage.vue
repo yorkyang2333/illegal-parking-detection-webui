@@ -45,6 +45,10 @@
             </el-input>
           </el-form-item>
 
+          <el-form-item>
+            <el-checkbox v-model="form.rememberMe">记住我</el-checkbox>
+          </el-form-item>
+
           <el-form-item v-if="authStore.error">
             <el-alert :title="authStore.error" type="error" :closable="false" />
           </el-form-item>
@@ -85,6 +89,7 @@ const formRef = ref<FormInstance>()
 const form = reactive({
   username: '',
   password: '',
+  rememberMe: false,
 })
 
 const rules: FormRules = {
@@ -97,9 +102,9 @@ async function handleLogin() {
 
   await formRef.value.validate(async (valid) => {
     if (valid) {
-      const success = await authStore.login(form.username, form.password)
+      const success = await authStore.login(form.username, form.password, form.rememberMe)
       if (success) {
-        router.push('/chat')
+        router.push('/analysis')
       }
     }
   })

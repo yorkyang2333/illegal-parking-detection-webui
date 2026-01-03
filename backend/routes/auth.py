@@ -67,6 +67,7 @@ def login():
 
         username = data.get('username', '').strip()
         password = data.get('password', '')
+        remember_me = data.get('remember_me', False)
 
         if not username or not password:
             return jsonify({'error': '用户名和密码都是必填项'}), 400
@@ -83,6 +84,12 @@ def login():
         # Create session
         session['user_id'] = user.id
         session['username'] = user.username
+        
+        # Set session to permanent if remember me is checked
+        if remember_me:
+            session.permanent = True
+        else:
+            session.permanent = False
 
         return jsonify({
             'message': '登录成功',

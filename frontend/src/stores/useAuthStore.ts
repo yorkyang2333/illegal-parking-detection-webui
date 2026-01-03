@@ -13,12 +13,12 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => user.value !== null)
 
   // Actions
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string, rememberMe: boolean = false) {
     try {
       isLoading.value = true
       error.value = null
 
-      const response = await loginApi(username, password)
+      const response = await loginApi(username, password, rememberMe)
       user.value = response.user || null
 
       return true

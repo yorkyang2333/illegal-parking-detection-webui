@@ -14,50 +14,37 @@
     </div>
 
     <div class="header-center">
-      <a
-        href="https://gemini.google.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="header-link"
-      >
-        <img src="/assets/gemini_logo.svg" class="link-icon" alt="Gemini">
-        <span class="link-text">Gemini</span>
-        <svg class="external-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/>
-          <line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-      </a>
-      <a
-        href="https://chat.qwen.ai"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="header-link"
-      >
-        <img src="/assets/qwen_logo.svg" class="link-icon" alt="Qwen">
-        <span class="link-text">Qwen Chat</span>
-        <svg class="external-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/>
-          <line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-      </a>
-      <button class="new-chat-btn" @click="handleNewChat" :disabled="chatStore.isStreaming">
-        <el-icon><Plus /></el-icon>
-        <span>新建对话</span>
-      </button>
+      <!-- 外部链接已移除，重新分析按钮已移至分析页面 -->
     </div>
 
     <div class="header-right">
-      <button class="user-info" @click="showProfileDialog = true" title="修改个人信息">
-        <el-icon class="user-icon"><User /></el-icon>
-        <span class="user-name">{{ authStore.user?.username || '用户' }}</span>
-        <el-icon class="edit-icon"><Edit /></el-icon>
-      </button>
-      <button class="logout-btn" @click="handleLogout" title="退出登录">
-        <el-icon><SwitchButton /></el-icon>
-        <span class="logout-text">退出</span>
-      </button>
+      <!-- 用户下拉菜单 -->
+      <div class="user-dropdown" ref="dropdownRef">
+        <button class="user-avatar-btn" @click="toggleDropdown" title="用户菜单">
+          <el-icon class="avatar-icon"><User /></el-icon>
+          <span class="user-name">{{ authStore.user?.username || '用户' }}</span>
+          <el-icon class="arrow-icon" :class="{ rotated: isDropdownOpen }"><ArrowDown /></el-icon>
+        </button>
+        
+        <!-- 下拉菜单 -->
+        <Transition name="dropdown">
+          <div v-if="isDropdownOpen" class="dropdown-menu">
+            <button class="dropdown-item" @click="handleProfile">
+              <el-icon><User /></el-icon>
+              <span>用户资料</span>
+            </button>
+            <button class="dropdown-item" @click="handleSettings">
+              <el-icon><Setting /></el-icon>
+              <span>设置</span>
+            </button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item logout" @click="handleLogout">
+              <el-icon><SwitchButton /></el-icon>
+              <span>退出登录</span>
+            </button>
+          </div>
+        </Transition>
+      </div>
     </div>
 
     <!-- 移动端汉堡菜单 -->
@@ -70,18 +57,7 @@
     <!-- 移动端下拉菜单 -->
     <div v-if="isMobileMenuOpen" class="mobile-menu-overlay" @click="closeMobileMenu"></div>
     <nav class="mobile-menu" :class="{ open: isMobileMenuOpen }">
-      <a href="https://gemini.google.com" target="_blank" rel="noopener noreferrer" class="mobile-link" @click="closeMobileMenu">
-        <img src="/assets/gemini_logo.svg" class="link-icon" alt="Gemini">
-        Gemini
-      </a>
-      <a href="https://chat.qwen.ai" target="_blank" rel="noopener noreferrer" class="mobile-link" @click="closeMobileMenu">
-        <img src="/assets/qwen_logo.svg" class="link-icon" alt="Qwen">
-        Qwen Chat
-      </a>
-      <button class="mobile-link" @click="handleNewChat(); closeMobileMenu()">
-        <el-icon><Plus /></el-icon>
-        新建对话
-      </button>
+      <!-- 外部链接和重新分析按钮已移除 -->
       <div class="mobile-divider"></div>
       <button class="mobile-link" @click="showProfileDialog = true; closeMobileMenu()">
         <el-icon><User /></el-icon>
@@ -114,25 +90,31 @@
         </el-button>
       </template>
     </el-dialog>
+    <!-- 设置弹窗 -->
+    <SettingsDialog v-model="showSettingsDialog" />
   </header>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, User, SwitchButton, Edit } from '@element-plus/icons-vue'
+import { User, SwitchButton, Edit, ArrowDown, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { useChatStore } from '@/stores/useChatStore'
+import SettingsDialog from '@/components/settings/SettingsDialog.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const chatStore = useChatStore()
 const isMobileMenuOpen = ref(false)
 const showProfileDialog = ref(false)
+const showSettingsDialog = ref(false)
 const isUpdatingProfile = ref(false)
 const profileFormRef = ref<FormInstance>()
+
+// Dropdown state
+const isDropdownOpen = ref(false)
+const dropdownRef = ref<HTMLElement | null>(null)
 
 const profileForm = reactive({
   username: '',
@@ -157,6 +139,39 @@ watch(showProfileDialog, (val) => {
   }
 })
 
+// Dropdown functions
+function toggleDropdown() {
+  isDropdownOpen.value = !isDropdownOpen.value
+}
+
+function closeDropdown() {
+  isDropdownOpen.value = false
+}
+
+function handleClickOutside(event: MouseEvent) {
+  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
+    closeDropdown()
+  }
+}
+
+function handleProfile() {
+  showProfileDialog.value = true
+  closeDropdown()
+}
+
+function handleSettings() {
+  showSettingsDialog.value = true
+  closeDropdown()
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
 function toggleMobileMenu() {
   isMobileMenuOpen.value = !isMobileMenuOpen.value
 }
@@ -165,9 +180,6 @@ function closeMobileMenu() {
   isMobileMenuOpen.value = false
 }
 
-function handleNewChat() {
-  chatStore.clearChat()
-}
 
 async function handleUpdateProfile() {
   if (!profileFormRef.value) return
@@ -193,6 +205,7 @@ async function handleUpdateProfile() {
 }
 
 async function handleLogout() {
+  closeDropdown()
   await authStore.logout()
   closeMobileMenu()
   router.push('/login')
@@ -315,14 +328,19 @@ async function handleLogout() {
   gap: 12px;
 }
 
-.user-info {
+/* 用户下拉菜单 */
+.user-dropdown {
+  position: relative;
+}
+
+.user-avatar-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 8px 14px;
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
-  border-radius: 20px;
+  border-radius: 24px;
   color: #4b5563;
   font-size: 14px;
   font-weight: 500;
@@ -334,34 +352,105 @@ async function handleLogout() {
     border-color: #d1d5db;
   }
 
-  .user-icon {
+  .avatar-icon {
     font-size: 18px;
+    color: #5b6eae;
   }
 
-  .edit-icon {
-    font-size: 14px;
-    opacity: 0.6;
+  .user-name {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .arrow-icon {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    
+    &.rotated {
+      transform: rotate(180deg);
+    }
   }
 }
 
-.logout-btn {
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e5e7eb;
+  padding: 8px 0;
+  z-index: 1001;
+}
+
+.dropdown-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
   background: transparent;
-  border: 1px solid #ef4444;
-  color: #ef4444;
-  border-radius: 8px;
+  border: none;
+  color: #4b5563;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  text-align: left;
+
+  .el-icon {
+    font-size: 16px;
+    color: #6b7280;
+  }
 
   &:hover {
-    background: #ef4444;
-    color: white;
+    background: #f3f4f6;
+    color: #5b6eae;
+
+    .el-icon {
+      color: #5b6eae;
+    }
   }
+
+  &.logout {
+    color: #ef4444;
+
+    .el-icon {
+      color: #ef4444;
+    }
+
+    &:hover {
+      background: #fef2f2;
+      color: #dc2626;
+
+      .el-icon {
+        color: #dc2626;
+      }
+    }
+  }
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 6px 12px;
+}
+
+/* Dropdown transition */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
+  transform-origin: top right;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(-4px);
 }
 
 /* 移动端汉堡菜单按钮 */

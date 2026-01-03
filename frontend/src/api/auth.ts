@@ -5,14 +5,14 @@ const API_BASE = '/api/auth'
 /**
  * Login user
  */
-export async function loginApi(username: string, password: string): Promise<AuthResponse> {
+export async function loginApi(username: string, password: string, rememberMe: boolean = false): Promise<AuthResponse> {
   const response = await fetch(`${API_BASE}/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     credentials: 'include',
-    body: JSON.stringify({ username, password } as LoginRequest),
+    body: JSON.stringify({ username, password, remember_me: rememberMe } as LoginRequest),
   })
 
   if (!response.ok) {
