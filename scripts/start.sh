@@ -21,25 +21,33 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
-# Check Python
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Error: Python 3 not installed${NC}"
-    echo -e "${RED}Please install Python 3 from https://python.org${NC}"
+# Find a compatible stable Python version (3.10-3.13)
+PYTHON_BIN=""
+for ver in python3.13 python3.12 python3.11 python3.10 python3; do
+    cmd=$(command -v $ver 2>/dev/null)
+    [ -z "$cmd" ] && continue
+    # Skip 3.14 due to dependency incompatibilities
+    if [[ ! $($cmd --version 2>&1) =~ "3.14" ]]; then
+        PYTHON_BIN=$cmd
+        break
+    fi
+done
+
+if [ -z "$PYTHON_BIN" ]; then
+    echo -e "${RED}Error: Stable Python version (3.10-3.13) not found. Found: $(python3 --version)${NC}"
     exit 1
 fi
 
 # Backend setup
 cd "$PROJECT_ROOT/backend" || { echo -e "${RED}Error: backend directory not found${NC}"; exit 1; }
 
-if [ ! -f .env ]; then
-    echo -e "${RED}Error: .env file not found in backend directory${NC}"
-    echo -e "${RED}Please create a .env file with your DASHSCOPE_API_KEY${NC}"
-    exit 1
-fi
+[ -f .env ] || { echo -e "${RED}Error: .env file missing in backend${NC}"; exit 1; }
 
-echo -e "${GREEN}[1/4] Setting up Python virtual environment...${NC}"
-if [ ! -d "venv" ]; then
-    python3 -m venv venv
+echo -e "${GREEN}[1/4] Preparing virtual environment...${NC}"
+# Recreate venv if missing or if it's using the incompatible 3.14 version
+if [ ! -d "venv" ] || [[ $(./venv/bin/python --version 2>&1) =~ "3.14" ]]; then
+    [ -d "venv" ] && rm -rf venv
+    $PYTHON_BIN -m venv venv
 fi
 source venv/bin/activate
 
