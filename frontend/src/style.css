@@ -1,54 +1,101 @@
 :root {
-  font-family: 'Inter', 'Courier New', system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* PRTS Thematic Colors - Extreme Contrast */
+  --ef-bg-dark: #05070a;
+  /* Almost black */
+  --ef-panel-bg: rgba(10, 15, 20, 0.85);
+  /* Transparent dark blue-gray */
+  --ef-panel-border: rgba(0, 240, 255, 0.3);
 
-  /* Rhodes Island PRTS Palette */
-  --ef-bg-dark: #f0f0f0;
-  /* The main background is bright */
-  --ef-panel-bg: #ffffff;
-  /* Clean white panels */
-  --ef-border: #1a1a1a;
-  /* Harsh dark borders */
-  --ef-border-light: #cccccc;
-  --ef-accent: #00a0e9;
-  /* Cyber-blue */
-  --ef-accent-hover: #0077b3;
-  --ef-warning: #ff6b00;
-  /* Cautionary orange */
-  --ef-text: #1a1a1a;
-  /* Dark text for readability */
-  --ef-text-dim: #666666;
+  --ef-text: #e0faff;
+  /* Ice white-blue */
+  --ef-text-dim: #7a9cb5;
+  --ef-accent: #00F0FF;
+  /* Neon Cyan */
+  --ef-accent-hover: #00b3cc;
+  --ef-warning: #FFD700;
+  /* Rhodes Island Amber/Yellow */
+  --ef-danger: #ff2a2a;
+  /* Critical Red */
 
-  /* Retain variable names for compatibility, but the theme is bright */
-  color: var(--ef-text);
-  background-color: var(--ef-bg-dark);
+  --ef-border: #00F0FF;
+  --ef-border-light: rgba(0, 240, 255, 0.15);
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --font-tech: 'Rajdhani', sans-serif;
+  --font-display: 'Orbitron', sans-serif;
+  --font-mono: 'Courier New', Courier, monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: var(--font-tech);
+  background-color: var(--ef-bg-dark);
+  color: var(--ef-text);
+  -webkit-font-smoothing: antialiased;
+
+  /* Sci-fi Grid Background */
+  background-image:
+    linear-gradient(to right, rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-position: center center;
+}
+
+/* Global Scanlines Overlay */
+body::after {
+  content: " ";
+  display: block;
+  position: fixed;
+  /* Fixed to cover scrolling */
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0),
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.05) 50%,
+      rgba(0, 0, 0, 0.05));
+  background-size: 100% 4px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Scrollbar Styling for PRTS */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 1px solid var(--ef-border-light);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ef-accent);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ef-text);
+}
+
 a {
   font-weight: 500;
-  color: #5b6eae;
+  color: var(--ef-accent);
   text-decoration: inherit;
+  font-family: var(--font-display);
 }
 
 a:hover {
-  color: #4a5a94;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: var(--ef-bg-dark);
+  color: var(--ef-text);
+  text-shadow: 0 0 8px var(--ef-accent);
 }
 
 h1 {

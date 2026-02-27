@@ -120,7 +120,7 @@ defineExpose({
 <style scoped lang="scss">
 .prts-terminal-container {
   padding: 16px;
-  background: white;
+  background: transparent;
   position: relative;
 }
 
@@ -128,23 +128,46 @@ defineExpose({
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  background: #fdfdfd;
+  background: rgba(10, 15, 20, 0.6);
   border: 1px solid var(--ef-border-light);
-  border-radius: 0;
-  padding: 8px 12px;
-  transition: all 0.2s ease;
+  padding: 12px 16px;
+  position: relative;
+  transition: all 0.3s ease;
+  clip-path: polygon(
+    0 0, 
+    calc(100% - 15px) 0, 
+    100% 15px, 
+    100% 100%, 
+    15px 100%, 
+    0 calc(100% - 15px)
+  );
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 20px; height: 20px;
+    border-top: 2px solid transparent;
+    border-left: 2px solid transparent;
+    transition: 0.3s;
+  }
 
   &:focus-within {
     border-color: var(--ef-accent);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    background: rgba(0, 240, 255, 0.05);
+    box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.1);
+
+    &::before {
+      border-color: var(--ef-accent);
+    }
   }
 }
 
 .prts-attach-btn {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  background: #f0f0f0;
+  width: 40px;
+  height: 40px;
+  background: rgba(0, 240, 255, 0.05);
   border: 1px solid var(--ef-border-light);
   color: var(--ef-text-dim);
   cursor: pointer;
@@ -152,11 +175,13 @@ defineExpose({
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
 
   &:hover {
     border-color: var(--ef-accent);
-    color: var(--ef-accent);
-    background: #e6f6ff;
+    color: var(--ef-bg-dark);
+    background: var(--ef-accent);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
   }
 }
 
@@ -165,10 +190,12 @@ defineExpose({
   border: none;
   background: transparent;
   resize: none;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
   color: var(--ef-text);
-  font-family: monospace;
+  font-family: var(--font-tech);
+  font-weight: 600;
+  letter-spacing: 1px;
   max-height: 200px;
   overflow-y: auto;
   padding: 8px 0;
@@ -190,31 +217,51 @@ defineExpose({
 
 .prts-send-btn {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--ef-border);
-  border-radius: 0;
-  background: white;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--ef-border-light);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--ef-text);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 0; height: 0;
+    border-bottom: 10px solid var(--ef-accent);
+    border-left: 10px solid transparent;
+    opacity: 0.5;
+    transition: 0.3s;
+  }
 
   svg {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
+    filter: drop-shadow(0 0 2px var(--ef-accent));
   }
 
   .el-icon {
-    font-size: 20px;
+    font-size: 24px;
   }
 
   &:hover:not(:disabled) {
     background: var(--ef-accent);
-    color: white;
+    color: var(--ef-bg-dark);
     border-color: var(--ef-accent);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+
+    &::after {
+      border-bottom-color: var(--ef-bg-dark);
+      opacity: 1;
+    }
   }
 
   &:active:not(:disabled) {
@@ -224,8 +271,13 @@ defineExpose({
   &:disabled {
     opacity: 0.3;
     border-color: var(--ef-border-light);
-    color: var(--ef-border-light);
+    color: var(--ef-text-dim);
     cursor: not-allowed;
+    background: transparent;
+    
+    &::after {
+      display: none;
+    }
   }
 }
 
