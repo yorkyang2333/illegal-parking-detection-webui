@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/useAuthStore'
 import LoginPage from '@/views/LoginPage.vue'
 import RegisterPage from '@/views/RegisterPage.vue'
-import AnalysisPage from '@/views/AnalysisPage.vue'
+import DashboardPage from '@/views/DashboardPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -26,13 +26,14 @@ const router = createRouter({
     {
       path: '/analysis',
       name: 'analysis',
-      component: AnalysisPage,
+      component: DashboardPage,
       meta: { requiresAuth: true },
     },
-    // 兼容旧的 /chat 路由
     {
       path: '/chat',
-      redirect: '/analysis',
+      name: 'chat',
+      component: DashboardPage,
+      meta: { requiresAuth: true },
     },
   ],
 })

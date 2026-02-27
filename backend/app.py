@@ -1,13 +1,14 @@
 import os
 import json
 import secrets
-from flask import Flask, render_template, request, jsonify, Response, session
+from flask import Flask, render_template, request, jsonify, Response, session, send_from_directory
 from flask_cors import CORS
 from dotenv import dotenv_values
 import dashscope
 import google.generativeai as genai
 from PIL import Image
-from database import init_db
+from database import init_db, db
+from models import Conversation, Message
 from routes.auth import auth_bp, login_required
 
 app = Flask(__name__)
@@ -58,6 +59,55 @@ else:
 def index():
     return render_template('index.html')
 
+# ==================== 对话历史 (Conversation History) API ====================
+
+@app.route('/api/conversations', methods=['GET', 'POST', 'OPTIONS'])
+@login_required
+def handle_conversations():
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    user_id = session.get('user_id')
+    
+    if request.method == 'GET':
+        # Fetch conversations for user, newest first
+        convs = Conversation.query.filter_by(user_id=user_id).order_by(Conversation.updated_at.desc()).all()
+        return jsonify([c.to_dict() for c in convs])
+        
+    elif request.method == 'POST':
+        # Create a new conversation
+        data = request.get_json() or {}
+        title = data.get('title', 'New Analysis')
+        
+        new_conv = Conversation(user_id=user_id, title=title)
+        db.session.add(new_conv)
+        db.session.commit()
+        return jsonify(new_conv.to_dict()), 201
+
+@app.route('/api/conversations/<int:conv_id>', methods=['GET', 'DELETE', 'OPTIONS'])
+@login_required
+def handle_conversation_detail(conv_id):
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    user_id = session.get('user_id')
+    conv = Conversation.query.filter_by(id=conv_id, user_id=user_id).first()
+    
+    if not conv:
+        return jsonify({'error': 'Conversation not found'}), 404
+        
+    if request.method == 'GET':
+        messages = Message.query.filter_by(conversation_id=conv_id).order_by(Message.created_at.asc()).all()
+        return jsonify({
+            'conversation': conv.to_dict(),
+            'messages': [m.to_dict() for m in messages]
+        })
+        
+    elif request.method == 'DELETE':
+        db.session.delete(conv)
+        db.session.commit()
+        return jsonify({'message': 'Conversation deleted successfully'})
+
 
 @app.route('/api/run', methods=['POST', 'OPTIONS'])
 @login_required
@@ -77,8 +127,31 @@ def run_inference():
         print("DEBUG: Invalid prompt or model received.")
         return jsonify({'error': 'Invalid prompt or model'}), 400
 
-    # Extract user input from the prompt_data
+    # Extract conversation details
+    conv_id = data.get('conversation_id')
+    if not conv_id:
+        return jsonify({'error': 'conversation_id is required'}), 400
+
+    # Verify conversation belongs to user
+    user_id = session.get('user_id')
+    conv = Conversation.query.filter_by(id=conv_id, user_id=user_id).first()
+    if not conv:
+        return jsonify({'error': 'Conversation not found'}), 404
+
+    video_filename = data.get('video_filename')
+
+    # Save user message to database
     user_input = prompt_data[0]['content'][1]['text']
+    user_msg = Message(
+        conversation_id=conv_id,
+        role='user',
+        content=user_input,
+        has_video=bool(video_filename),
+        video_path=video_filename
+    )
+    db.session.add(user_msg)
+    conv.updated_at = db.func.now()
+    db.session.commit()
 
     print(f"DEBUG: User input: {user_input}")
 
@@ -123,10 +196,40 @@ def run_inference():
                 return
             
             try:
+                import time
+                uploaded_file = None
+                gemini_prompt = [user_input]
+
+                # Handle video upload to Gemini if present
+                if video_filename:
+                    video_path = os.path.join(UPLOAD_FOLDER, video_filename)
+                    if os.path.exists(video_path):
+                        yield f"data: {json.dumps({'status': 'uploading_video', 'text': '[System]: Uploading video feed to remote analysis core...'})}\n\n"
+                        try:
+                            # Upload to Google
+                            uploaded_file = genai.upload_file(path=video_path)
+                            
+                            # Wait for processing
+                            yield f"data: {json.dumps({'status': 'processing_video', 'text': '[System]: Video uplink successful. Analyzing frames...'})}\n\n"
+                            while uploaded_file.state.name == "PROCESSING":
+                                time.sleep(2)
+                                uploaded_file = genai.get_file(uploaded_file.name)
+                            
+                            if uploaded_file.state.name == "FAILED":
+                                yield f"data: {json.dumps({'text': '[System]: Error: Video processing failed on remote core.'})}\n\n"
+                            else:
+                                gemini_prompt.insert(0, uploaded_file)
+                        except Exception as ve:
+                            print(f"ERROR: Video upload failed: {ve}")
+                            yield f"data: {json.dumps({'text': f'[System]: Video integration failed: {str(ve)}'})}\n\n"
+                
+                yield f"data: {json.dumps({'status': 'generating_text', 'text': ''})}\n\n"
                 model = genai.GenerativeModel('gemini-3-flash-preview')
-                response = model.generate_content(user_input, stream=True)
+                response = model.generate_content(gemini_prompt, stream=True)
+                accumulated_text = ""
                 for chunk in response:
                     if chunk.text:
+                        accumulated_text += chunk.text
                         formatted_response = {
                             "output": {
                                 "choices": [
@@ -141,6 +244,28 @@ def run_inference():
                             }
                         }
                         yield f"data: {json.dumps(formatted_response)}\n\n"
+                    
+                # Clean up uploaded video from Google's servers to save space
+                if uploaded_file:
+                    try:
+                        genai.delete_file(uploaded_file.name)
+                        print(f"DEBUG: Deleted temporary file {uploaded_file.name} from Google servers.")
+                    except Exception as clean_err:
+                        print(f"WARNING: Failed to delete file from Google servers: {clean_err}")
+
+                # Save assistant message to Database after completely generated
+                with app.app_context():
+                    db_conv = Conversation.query.get(conv_id)
+                    ai_msg = Message(
+                        conversation_id=conv_id,
+                        role='assistant',
+                        content=accumulated_text
+                    )
+                    db.session.add(ai_msg)
+                    if db_conv:
+                        db_conv.updated_at = db.func.now()
+                    db.session.commit()
+                    
             except Exception as e:
                 print(f"ERROR: Gemini run failed: {e}")
                 yield f"data: {json.dumps({'text': f'Error: {str(e)}'})}\n\n"
@@ -158,6 +283,11 @@ def run_inference():
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+
+@app.route('/api/uploads/<path:filename>')
+def serve_video(filename):
+    """Serve uploaded video files to the frontend player"""
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 @app.route('/api/upload-video', methods=['POST', 'OPTIONS'])
 @login_required

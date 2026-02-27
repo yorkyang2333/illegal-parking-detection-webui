@@ -1,9 +1,28 @@
 :root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', 'Courier New', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1f2937;
-  background-color: #ffffff;
+
+  /* Rhodes Island PRTS Palette */
+  --ef-bg-dark: #f0f0f0;
+  /* The main background is bright */
+  --ef-panel-bg: #ffffff;
+  /* Clean white panels */
+  --ef-border: #1a1a1a;
+  /* Harsh dark borders */
+  --ef-border-light: #cccccc;
+  --ef-accent: #00a0e9;
+  /* Cyber-blue */
+  --ef-accent-hover: #0077b3;
+  --ef-warning: #ff6b00;
+  /* Cautionary orange */
+  --ef-text: #1a1a1a;
+  /* Dark text for readability */
+  --ef-text-dim: #666666;
+
+  /* Retain variable names for compatibility, but the theme is bright */
+  color: var(--ef-text);
+  background-color: var(--ef-bg-dark);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -29,7 +48,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #ffffff;
+  background: var(--ef-bg-dark);
 }
 
 h1 {
@@ -64,10 +83,16 @@ button:focus-visible {
 
 /* Element Plus 主题覆盖 */
 :root {
-  --el-color-primary: #5b6eae;
-  --el-color-primary-light-3: #8a99c5;
-  --el-color-primary-light-5: #adb8d7;
-  --el-color-primary-light-7: #d1d7e9;
-  --el-color-primary-light-9: #f0f2f7;
-  --el-color-primary-dark-2: #4a5a94;
+  --el-color-primary: var(--ef-accent);
+  --el-color-primary-light-3: #4dffff;
+  --el-color-primary-light-5: #80ffff;
+  --el-color-primary-light-7: #b3ffff;
+  --el-color-primary-light-9: #e6ffff;
+  --el-color-primary-dark-2: var(--ef-accent-hover);
+  --el-bg-color: var(--ef-bg-dark);
+  --el-text-color-primary: var(--ef-text);
+  --el-text-color-regular: var(--ef-text-dim);
+  --el-border-color: var(--ef-border);
+  --el-border-color-light: var(--ef-border-light);
+  --el-fill-color-blank: var(--ef-panel-bg);
 }

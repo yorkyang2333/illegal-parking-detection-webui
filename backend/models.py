@@ -38,3 +38,49 @@ class User(db.Model, UserMixin):
             'created_at': self.created_at.isoformat(),
             'is_active': self.is_active
         }
+
+class Conversation(db.Model):
+    """Conversation model to group messages"""
+    __tablename__ = 'conversations'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    title = db.Column(db.String(200), default="New Analysis", nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    messages = db.relationship('Message', backref='conversation', lazy=True, cascade='all, delete-orphan')
+    user = db.relationship('User', backref=db.backref('conversations', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'title': self.title,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+class Message(db.Model):
+    """Individual message in a conversation"""
+    __tablename__ = 'messages'
+
+    id = db.Column(db.Integer, primary_key=True)
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversations.id'), nullable=False, index=True)
+    role = db.Column(db.String(50), nullable=False) # 'user' or 'model'
+    content = db.Column(db.Text, nullable=False)
+    has_video = db.Column(db.Boolean, default=False)
+    video_path = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'conversation_id': self.conversation_id,
+            'role': self.role,
+            'content': self.content,
+            'has_video': self.has_video,
+            'video_path': self.video_path,
+            'created_at': self.created_at.isoformat()
+        }

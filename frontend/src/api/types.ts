@@ -13,10 +13,38 @@ export interface PromptMessage {
 export interface InferenceRequest {
   prompt: PromptMessage[]
   model: string
+  conversation_id: number
+  video_filename?: string
+}
+
+// Conversation Types
+export interface Conversation {
+  id: number
+  user_id: number
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ConversationMessage {
+  id: number
+  conversation_id: number
+  role: 'user' | 'assistant'
+  content: string
+  has_video: boolean
+  video_path: string | null
+  created_at: string
+}
+
+export interface ConversationDetailResponse {
+  conversation: Conversation
+  messages: ConversationMessage[]
 }
 
 export interface SSEResponseChunk {
-  output: {
+  status?: string // Custom status like 'uploading_video', 'processing_video'
+  text?: string // Custom messages accompanying status
+  output?: {
     choices: Array<{
       message: {
         content: Array<{
