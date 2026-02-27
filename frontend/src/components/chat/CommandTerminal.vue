@@ -8,7 +8,7 @@
         type="file" 
         ref="fileInputRef" 
         style="display: none" 
-        accept="video/mp4,video/webm"
+        accept="video/*,image/*"
         @change="handleFileChange"
       />
       <textarea
@@ -55,7 +55,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   send: [content: string]
-  'upload-video': [file: File]
+  'upload-media': [file: File]
 }>()
 
 const inputText = ref('')
@@ -102,7 +102,7 @@ function triggerFileUpload() {
 function handleFileChange(event: Event) {
   const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
-    emit('upload-video', target.files[0])
+    emit('upload-media', target.files[0])
     // clear input
     target.value = ''
   }

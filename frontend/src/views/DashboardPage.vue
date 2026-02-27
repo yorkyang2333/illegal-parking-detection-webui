@@ -32,18 +32,26 @@
           <span class="panel-title">MAIN_SENSOR_FEED</span>
         </div>
         <div class="video-container">
-          <div class="video-placeholder" v-if="!latestVideoUrl">
+          <div class="video-placeholder" v-if="!latestMediaUrl">
             <el-icon><VideoCamera /></el-icon>
             <p>NO_SIGNAL</p>
           </div>
-          <video 
-            v-else
-            ref="videoPlayerRef"
-            class="active-video-player"
-            :src="latestVideoUrl"
-            controls
-            preload="metadata"
-          ></video>
+          <template v-else>
+            <img 
+              v-if="isImageMedia"
+              class="active-media-player image-feed"
+              :src="latestMediaUrl"
+              alt="Uplink Image Feed"
+            />
+            <video 
+              v-else
+              ref="videoPlayerRef"
+              class="active-media-player video-feed"
+              :src="latestMediaUrl"
+              controls
+              preload="metadata"
+            ></video>
+          </template>
         </div>
         
         <div class="system-status">
@@ -57,9 +65,9 @@
              <span class="label">CONN_STATUS:</span>
              <span class="value stable">[STABLE]</span>
            </div>
-           <div v-if="chatStore.uploadedVideoFilename" class="status-group upload-ok">
+           <div v-if="chatStore.uploadedMediaFilename" class="status-group upload-ok">
              <span class="label">CACHED_FEED:</span>
-             <span class="value">{{ chatStore.uploadedVideoFilename }}</span>
+             <span class="value">{{ chatStore.uploadedMediaFilename }}</span>
            </div>
         </div>
       </main>
@@ -107,7 +115,7 @@
             :disabled="chatStore.isStreaming"
             :placeholder="chatStore.isStreaming ? 'AWAITING_PRTS_RESPONSE...' : 'INPUT_PARAMETERS...'"
             @send="handleSend"
-            @upload-video="handleVideoUpload"
+            @upload-media="handleMediaUpload"
           />
         </div>
       </aside>
@@ -130,18 +138,19 @@ const chatStore = useChatStore()
 const scrollContainer = ref<HTMLElement | null>(null)
 const videoPlayerRef = ref<HTMLVideoElement | null>(null)
 
-// Computed video URL based on the current context
-const latestVideoUrl = computed(() => {
-  // Try currently staging video first
-  if (chatStore.uploadedVideoFilename) {
-    return `/api/uploads/${chatStore.uploadedVideoFilename}`
+// Computed media URL based on the current context
+const latestMediaUrl = computed(() => {
+  if (chatStore.uploadedMediaFilename) {
+    return `/api/uploads/${chatStore.uploadedMediaFilename}`
   }
-  // Otherwise try the most recent video submitted in this conversation
-  // Note: we need API endpoints to expose the file paths in history, 
-  // currently we don't fetch `video_path` securely mapped, but let's assume `useChatStore` 
-  // has access to raw `messages` if we patch `ChatMessage` interface -> we didn't add `video_path` to the local ChatMessage type, just the API types.
-  // For now, this stays null if no queue, or we can look for it later.
   return null
+})
+
+const isImageMedia = computed(() => {
+  const url = latestMediaUrl.value
+  if (!url) return false
+  const lowerUrl = url.toLowerCase()
+  return lowerUrl.endsWith('.jpg') || lowerUrl.endsWith('.jpeg') || lowerUrl.endsWith('.png') || lowerUrl.endsWith('.webp')
 })
 
 // Initialize conversations
@@ -168,9 +177,9 @@ function handleSend(content: string) {
   chatStore.sendMessage(content)
 }
 
-async function handleVideoUpload(file: File) {
+async function handleMediaUpload(file: File) {
   try {
-    await chatStore.uploadVideo(file)
+    await chatStore.uploadMedia(file)
   } catch (err) {
     console.error(err)
   }
@@ -357,10 +366,14 @@ function scrollToBottom() {
   }
 }
 
-.active-video-player {
+.active-media-player {
   width: 100%;
   height: 100%;
   object-fit: contain;
+
+  &.image-feed {
+    border: 1px solid var(--ef-border);
+  }
 }
 
 .system-status {

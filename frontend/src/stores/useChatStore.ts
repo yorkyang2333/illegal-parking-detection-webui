@@ -23,7 +23,7 @@ export const useChatStore = defineStore('chat', () => {
   // Conversation State
   const conversations = ref<Conversation[]>([])
   const activeConversationId = ref<number | null>(null)
-  const uploadedVideoFilename = ref<string | null>(null)
+  const uploadedMediaFilename = ref<string | null>(null)
 
   // Computed
   const hasMessages = computed(() => messages.value.length > 0)
@@ -135,13 +135,13 @@ export const useChatStore = defineStore('chat', () => {
       prompt: formatPromptForAPI(content.trim()),
       model: 'gemini',
       conversation_id: activeConversationId.value!,
-      video_filename: uploadedVideoFilename.value || undefined
+      media_filename: uploadedMediaFilename.value || undefined
     }
 
     try {
       await sse.start(payload)
-      // Clear attached video after successful transmission
-      uploadedVideoFilename.value = null
+      // Clear attached media after successful transmission
+      uploadedMediaFilename.value = null
     } catch (err: unknown) {
       error.value = err instanceof Error ? err.message : 'Unknown error'
       isStreaming.value = false
@@ -153,7 +153,7 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = []
     currentStreamingContent.value = ''
     activeConversationId.value = null
-    uploadedVideoFilename.value = null
+    uploadedMediaFilename.value = null
     error.value = null
     if (isStreaming.value) {
       sse.stop()
@@ -216,24 +216,24 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  async function uploadVideo(file: File) {
+  async function uploadMedia(file: File) {
     try {
       const formData = new FormData()
-      formData.append('video', file)
+      formData.append('media', file)
 
-      const res = await fetch('/api/upload-video', {
+      const res = await fetch('/api/upload-media', {
         method: 'POST',
         body: formData
       })
       if (res.ok) {
         const data = await res.json()
-        uploadedVideoFilename.value = data.filename
+        uploadedMediaFilename.value = data.filename
       } else {
         throw new Error('Upload failed')
       }
     } catch (e) {
-      console.error('Video upload failed', e)
-      error.value = 'Failed to upload video'
+      console.error('Media upload failed', e)
+      error.value = 'Failed to upload media'
     }
   }
 
@@ -244,7 +244,7 @@ export const useChatStore = defineStore('chat', () => {
     error,
     conversations,
     activeConversationId,
-    uploadedVideoFilename,
+    uploadedMediaFilename,
     // Computed
     hasMessages,
     // Actions
@@ -254,6 +254,6 @@ export const useChatStore = defineStore('chat', () => {
     fetchConversations,
     loadConversation,
     createNewConversation,
-    uploadVideo
+    uploadMedia
   }
 })

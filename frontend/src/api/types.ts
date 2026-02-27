@@ -14,7 +14,7 @@ export interface InferenceRequest {
   prompt: PromptMessage[]
   model: string
   conversation_id: number
-  video_filename?: string
+  media_filename?: string
 }
 
 // Conversation Types
@@ -31,8 +31,8 @@ export interface ConversationMessage {
   conversation_id: number
   role: 'user' | 'assistant'
   content: string
-  has_video: boolean
-  video_path: string | null
+  has_media: boolean
+  media_path: string | null
   created_at: string
 }
 

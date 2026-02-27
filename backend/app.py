@@ -138,7 +138,7 @@ def run_inference():
     if not conv:
         return jsonify({'error': 'Conversation not found'}), 404
 
-    video_filename = data.get('video_filename')
+    media_filename = data.get('media_filename')
 
     # Save user message to database
     user_input = prompt_data[0]['content'][1]['text']
@@ -146,8 +146,8 @@ def run_inference():
         conversation_id=conv_id,
         role='user',
         content=user_input,
-        has_video=bool(video_filename),
-        video_path=video_filename
+        has_video=bool(media_filename),
+        video_path=media_filename
     )
     db.session.add(user_msg)
     conv.updated_at = db.func.now()
@@ -212,28 +212,29 @@ You are a PRTS Analysis Core. Analyze the video and the user prompt, then output
 """
                 gemini_prompt = [json_instruction, "User Command: " + user_input]
 
-                # Handle video upload to Gemini if present
-                if video_filename:
-                    video_path = os.path.join(UPLOAD_FOLDER, video_filename)
-                    if os.path.exists(video_path):
-                        yield f"data: {json.dumps({'status': 'uploading_video', 'text': '[System]: Uploading video feed to remote analysis core...'})}\n\n"
+                # Handle media upload to Gemini if present
+                if media_filename:
+                    media_path = os.path.join(UPLOAD_FOLDER, media_filename)
+                    if os.path.exists(media_path):
+                        yield f"data: {json.dumps({'status': 'uploading_media', 'text': '[System]: Uploading visual feed to remote analysis core...'})}\n\n"
                         try:
                             # Upload to Google
-                            uploaded_file = genai.upload_file(path=video_path)
+                            uploaded_file = genai.upload_file(path=media_path)
                             
                             # Wait for processing
-                            yield f"data: {json.dumps({'status': 'processing_video', 'text': '[System]: Video uplink successful. Analyzing frames...'})}\n\n"
+                            yield f"data: {json.dumps({'status': 'processing_media', 'text': '[System]: Media uplink successful. Analyzing frames...'})}\n\n"
                             while uploaded_file.state.name == "PROCESSING":
+                                import time
                                 time.sleep(2)
                                 uploaded_file = genai.get_file(uploaded_file.name)
                             
                             if uploaded_file.state.name == "FAILED":
-                                yield f"data: {json.dumps({'text': '[System]: Error: Video processing failed on remote core.'})}\n\n"
+                                yield f"data: {json.dumps({'text': '[System]: Error: Media processing failed on remote core.'})}\n\n"
                             else:
                                 gemini_prompt.insert(0, uploaded_file)
                         except Exception as ve:
-                            print(f"ERROR: Video upload failed: {ve}")
-                            yield f"data: {json.dumps({'text': f'[System]: Video integration failed: {str(ve)}'})}\n\n"
+                            print(f"ERROR: Media upload failed: {ve}")
+                            yield f"data: {json.dumps({'text': f'[System]: Media integration failed: {str(ve)}'})}\n\n"
                 
                 yield f"data: {json.dumps({'status': 'generating_text', 'text': ''})}\n\n"
                 model = genai.GenerativeModel('gemini-3-flash-preview')
@@ -297,21 +298,23 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 @app.route('/api/uploads/<path:filename>')
-def serve_video(filename):
-    """Serve uploaded video files to the frontend player"""
+def serve_media(filename):
+    """Serve uploaded media files to the frontend player"""
     return send_from_directory(UPLOAD_FOLDER, filename)
 
-@app.route('/api/upload-video', methods=['POST', 'OPTIONS'])
+@app.route('/api/upload-media', methods=['POST', 'OPTIONS'])
 @login_required
-def upload_video():
-    """视频上传接口"""
+def upload_media():
+    """媒体文件上传接口（支持图片和视频）"""
     if request.method == 'OPTIONS':
         return '', 204
     
-    if 'video' not in request.files:
-        return jsonify({'error': '未找到视频文件'}), 400
+    # 兼容前端传递的字段名
+    file = request.files.get('media') or request.files.get('video')
     
-    file = request.files['video']
+    if not file:
+        return jsonify({'error': '未找到上传文件'}), 400
+    
     if file.filename == '':
         return jsonify({'error': '未选择文件'}), 400
     
@@ -321,7 +324,7 @@ def upload_video():
     file.save(filepath)
     
     return jsonify({
-        'message': '视频上传成功',
+        'message': '文件上传成功',
         'filename': filename,
         'filepath': filepath
     })
