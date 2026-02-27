@@ -4,21 +4,75 @@
       <span class="log-role">{{ message.role === 'user' ? 'OPERATOR_INPUT' : 'PRTS_ANALYSIS' }}</span>
       <span class="log-time">[{{ formatTime(message.timestamp) }}]</span>
     </div>
-    <div class="log-body prts-output">
-      <div v-if="message.role === 'assistant' && message.content" class="markdown-content" @click="handleMarkdownClick">
-        <MarkdownViewer :content="parseTimestamps(message.content)" />
+    
+    <!-- User Input -->
+    <div v-if="message.role === 'user'" class="log-body prts-output">
+      <div class="text-content">
+        <span>> </span>{{ message.content }}
       </div>
-      <div v-else-if="message.role === 'assistant' && message.isStreaming && !message.content" class="typing-indicator">
+    </div>
+
+    <!-- AI Output -->
+    <div v-else class="log-body prts-output">
+      <div v-if="message.isStreaming && !message.content" class="typing-indicator">
         <span class="processing-text">PROCESSING_DATA...</span>
       </div>
-      <div v-else class="text-content">
-        <span v-if="message.role === 'user'">> </span>{{ message.content }}
+      
+      <!-- Structured PRTS Card -->
+      <div v-else-if="hasStructuredData" class="prts-card-grid">
+        <div class="card-row split">
+          <div class="data-block">
+            <div class="data-label">LICENSE_PLATE</div>
+            <div class="data-value highlight">{{ parsedData.license_plate || 'SCANNING...' }}</div>
+          </div>
+          <div class="data-block">
+            <div class="data-label">VEHICLE_COLOR</div>
+            <div class="data-value">{{ parsedData.vehicle_color || '---' }}</div>
+          </div>
+        </div>
+        
+        <div class="card-row split">
+          <div class="data-block">
+            <div class="data-label">VIOLATION_TYPE</div>
+            <div class="data-value warning">{{ parsedData.violation_type || 'ANALYZING...' }}</div>
+          </div>
+          <div class="data-block">
+            <div class="data-label">INCIDENT_TIMESTAMP</div>
+            <div class="data-value">{{ parsedData.timestamp || '---' }}</div>
+          </div>
+        </div>
+        
+        <div class="card-row full">
+          <div class="data-block">
+            <div class="data-label">TACTICAL_ANALYSIS</div>
+            <div class="data-value log-text">{{ parsedData.analysis || 'AWAITING_CORE_DUMP...' }}</div>
+          </div>
+        </div>
+        
+        <div class="card-row full">
+          <div class="data-block penalty-block">
+            <div class="data-label">RECOMMENDED_PENALTY</div>
+            <div class="data-value alert">{{ parsedData.suggested_penalty || 'PENDING...' }}</div>
+          </div>
+        </div>
+        
+        <!-- Raw JSON debug collapse or residual text -->
+        <details class="raw-data-toggle" v-if="parsedData.raw">
+          <summary>VIEW_RAW_STREAM</summary>
+          <pre>{{ message.content }}</pre>
+        </details>
+      </div>
+      
+      <!-- Fallback to Markdown/Text if not JSON -->
+      <div v-else class="markdown-content" @click="handleMarkdownClick">
+        <MarkdownViewer :content="parseTimestamps(message.content)" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { User } from '@element-plus/icons-vue'
 import MarkdownViewer from '@/components/common/MarkdownViewer.vue'
 import type { ChatMessage } from '@/stores/useChatStore'
@@ -30,6 +84,46 @@ const props = defineProps<{
 const emit = defineEmits<{
   'seek-video': [seconds: number]
 }>()
+
+// Robust streamed JSON extractor
+const parsedData = computed(() => {
+  if (props.message.role !== 'assistant') return {}
+  const content = props.message.content
+  if (!content.includes('{') && !content.includes('license_plate')) return {}
+
+  const extract = (key: string) => {
+    // Matches "key": "value" or "key":"value" with potential escaped quotes
+    const regex = new RegExp(`"${key}"\\s*:\\s*"([^"]*)"?`)
+    const match = content.match(regex)
+    return match ? match[1].replace(/\\"/g, '"').replace(/\\n/g, '\n') : ''
+  }
+
+  // Check if we have at least one of our target keys to activate structured mode
+  const license_plate = extract('license_plate')
+  const vehicle_color = extract('vehicle_color')
+  const violation_type = extract('violation_type')
+  const timestamp = extract('timestamp')
+  const analysis = extract('analysis')
+  const suggested_penalty = extract('suggested_penalty')
+
+  const hasAnyKey = license_plate || vehicle_color || violation_type || timestamp || analysis || suggested_penalty
+
+  if (hasAnyKey) {
+    return {
+      license_plate,
+      vehicle_color,
+      violation_type,
+      timestamp,
+      analysis,
+      suggested_penalty,
+      raw: true
+    }
+  }
+
+  return {}
+})
+
+const hasStructuredData = computed(() => Object.keys(parsedData.value).length > 0)
 
 function formatTime(date: Date): string {
   const d = new Date(date)
@@ -206,6 +300,113 @@ function handleMarkdownClick(event: MouseEvent) {
 @media (max-width: 768px) {
   .prts-log-entry {
     padding: 10px;
+  }
+}
+/* Structured Data Card */
+.prts-card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--ef-border-light);
+  padding: 8px;
+  margin-top: 4px;
+}
+
+.card-row {
+  display: flex;
+  gap: 8px;
+  
+  &.split > .data-block {
+    flex: 1;
+  }
+  
+  &.full > .data-block {
+    flex: 1;
+    width: 100%;
+  }
+}
+
+.data-block {
+  background: white;
+  border: 1px solid var(--ef-border-light);
+  padding: 8px 12px;
+  position: relative;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--ef-border-light);
+  }
+}
+
+.penalty-block {
+  background: #fff8f8;
+  border-color: #ffcccc;
+  &::before {
+    background: var(--ef-warning);
+  }
+}
+
+.data-label {
+  font-family: 'Arial', sans-serif;
+  font-size: 10px;
+  color: var(--ef-text-dim);
+  margin-bottom: 4px;
+  letter-spacing: 1px;
+}
+
+.data-value {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--ef-text);
+  
+  &.highlight {
+    color: var(--ef-accent);
+  }
+  
+  &.warning {
+    color: var(--ef-warning);
+  }
+  
+  &.alert {
+    color: #cc0000;
+  }
+  
+  &.log-text {
+    font-weight: normal;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+}
+
+.raw-data-toggle {
+  margin-top: 8px;
+  cursor: pointer;
+  
+  summary {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--ef-text-dim);
+    outline: none;
+    
+    &:hover {
+      color: var(--ef-accent);
+    }
+  }
+  
+  pre {
+    margin-top: 8px;
+    background: #f4f4f4;
+    padding: 8px;
+    font-size: 11px;
+    border: 1px solid var(--ef-border-light);
+    overflow-x: auto;
   }
 }
 </style>

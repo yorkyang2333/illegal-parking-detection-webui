@@ -196,9 +196,21 @@ def run_inference():
                 return
             
             try:
-                import time
                 uploaded_file = None
-                gemini_prompt = [user_input]
+                
+                # Enforce JSON template
+                json_instruction = """
+You are a PRTS Analysis Core. Analyze the video and the user prompt, then output your response EXACTLY in this raw JSON format without any markdown code blocks (no ```json):
+{
+  "license_plate": "String or N/A",
+  "vehicle_color": "String or N/A",
+  "violation_type": "String or N/A",
+  "timestamp": "Time range or N/A",
+  "analysis": "Detailed analysis string",
+  "suggested_penalty": "Penalty suggestion string"
+}
+"""
+                gemini_prompt = [json_instruction, "User Command: " + user_input]
 
                 # Handle video upload to Gemini if present
                 if video_filename:
