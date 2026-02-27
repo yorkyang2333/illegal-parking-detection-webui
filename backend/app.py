@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, jsonify, Response, session
 from flask_cors import CORS
 from dotenv import dotenv_values
 import dashscope
+import google.generativeai as genai
 from PIL import Image
 from database import init_db
 from routes.auth import auth_bp, login_required
@@ -42,11 +43,15 @@ app.register_blueprint(auth_bp)
 DASHSCOPE_API_KEY = config.get("DASHSCOPE_API_KEY")
 GEMINI_API_KEY = config.get("GEMINI_API_KEY")
 
-
 if DASHSCOPE_API_KEY:
     dashscope.api_key = DASHSCOPE_API_KEY
 else:
     print("DASHSCOPE_API_KEY not found in .env file. DashScope functionality may be limited.")
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+else:
+    print("GEMINI_API_KEY not found in .env file. Gemini functionality will be limited.")
 
 
 @app.route('/')
@@ -108,20 +113,37 @@ def run_inference():
                         ]
                     }
                 }
-                formatted_response = {
-                    "output": {
-                        "choices": [
-                            {
-                                "message": {
-                                    "content": [
-                                        {"text": response.output.text}
-                                    ]
-                                }
-                            }
-                        ]
-                    }
-                }
                 yield f"data: {json.dumps(formatted_response)}\n\n"
+        
+        elif selected_model == 'gemini':
+            print("DEBUG: Gemini model selected.")
+            if not GEMINI_API_KEY:
+                print("DEBUG: Gemini API Key not configured.")
+                yield f"data: {json.dumps({'text': 'Error: Gemini API Key not configured.'})}\n\n"
+                return
+            
+            try:
+                model = genai.GenerativeModel('gemini-3-flash-preview')
+                response = model.generate_content(user_input, stream=True)
+                for chunk in response:
+                    if chunk.text:
+                        formatted_response = {
+                            "output": {
+                                "choices": [
+                                    {
+                                        "message": {
+                                            "content": [
+                                                {"text": chunk.text}
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                        yield f"data: {json.dumps(formatted_response)}\n\n"
+            except Exception as e:
+                print(f"ERROR: Gemini run failed: {e}")
+                yield f"data: {json.dumps({'text': f'Error: {str(e)}'})}\n\n"
         
         else:
             print("DEBUG: Invalid model selected.")
@@ -178,37 +200,24 @@ def analyze_gemini():
     print(f"DEBUG: Prompt: {prompt[:100]}...")
     
     def event_stream():
-        # TODO: 实际调用 Gemini API，目前使用 DashScope 模拟
-        # 当配置了 Gemini API Key 后，可替换为实际调用
-        if not DASHSCOPE_API_KEY:
-            yield f"data: {json.dumps({'error': 'API Key 未配置'})}\n\n"
+        if not GEMINI_API_KEY:
+            yield f"data: {json.dumps({'error': 'Gemini API Key 未配置'})}\n\n"
             return
         
         try:
-            # 使用 Qwen 模拟 Gemini 分析结果
-            simulation_prompt = f"""请模拟一个视频违停分析系统的输出。
-用户上传了一段名为 "{video_name}" 的视频进行违停检测。
-
-请按照以下格式输出一个模拟的违停分析结果：
-{prompt}
-
-注意：这是一个模拟测试，请生成合理的模拟数据。"""
+            model = genai.GenerativeModel('gemini-3-flash-preview')
+            response = model.generate_content([
+                f"你是一个视频违停分析系统。用户上传了一段名为 '{video_name}' 的视频。请进行如下分析：",
+                prompt
+            ], stream=True)
             
-            messages = [{"role": "user", "content": simulation_prompt}]
-            responses = dashscope.Generation.call(
-                model='qwen-plus-latest', 
-                messages=messages, 
-                stream=True, 
-                incremental_output=True
-            )
-            
-            for response in responses:
-                if response.output and response.output.text:
+            for chunk in response:
+                if chunk.text:
                     formatted_response = {
                         "output": {
                             "choices": [{
                                 "message": {
-                                    "content": [{"text": response.output.text}]
+                                    "content": [{"text": chunk.text}]
                                 }
                             }]
                         }

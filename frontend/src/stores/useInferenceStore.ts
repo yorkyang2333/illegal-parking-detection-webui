@@ -73,7 +73,7 @@ export const useInferenceStore = defineStore('inference', () => {
 
     const payload: InferenceRequest = {
       prompt: formattedPrompt.value,
-      model: 'dashscope'
+      model: 'gemini'
     }
 
     try {

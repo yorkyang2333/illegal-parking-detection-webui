@@ -37,8 +37,13 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-echo -e "${GREEN}[1/4] Installing Python dependencies...${NC}"
-pip3 install -r requirements.txt > /dev/null 2>&1
+echo -e "${GREEN}[1/4] Setting up Python virtual environment...${NC}"
+if [ ! -d "venv" ]; then
+    python3 -m venv venv
+fi
+source venv/bin/activate
+
+pip install -r requirements.txt > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Python dependencies installed${NC}"
 else
@@ -47,7 +52,7 @@ else
 fi
 
 echo -e "${GREEN}[2/4] Starting Flask backend (port 5001)...${NC}"
-python3 app.py &
+python app.py &
 BACKEND_PID=$!
 sleep 2
 if ps -p $BACKEND_PID > /dev/null; then

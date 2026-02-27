@@ -113,7 +113,7 @@ export const useChatStore = defineStore('chat', () => {
 
     const payload: InferenceRequest = {
       prompt: formatPromptForAPI(content.trim()),
-      model: 'dashscope'
+      model: 'gemini'
     }
 
     try {
