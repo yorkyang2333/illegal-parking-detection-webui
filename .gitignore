@@ -9,6 +9,7 @@ backend/venv/
 # Cache directory
 frame_cache/
 backend/frame_cache/
+backend/uploads/
 
 # Python cache
 __pycache__/
@@ -35,6 +36,7 @@ npm-debug.log*
 Thumbs.db
 
 # IDE
+.agent/
 .vscode/
 .idea/
 *.swp
