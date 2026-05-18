@@ -1,0 +1,7 @@
+torch==2.10.0
+torchvision
+fastapi
+uvicorn[standard]
+python-multipart
+opencv-python==4.10.0.84
+numpy

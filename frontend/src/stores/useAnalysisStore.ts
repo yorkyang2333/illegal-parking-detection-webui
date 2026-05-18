@@ -17,35 +17,6 @@ export interface Step {
     error?: string
 }
 
-// 预设提示词
-const GEMINI_PROMPT = `假如你是一名交警，我将上传一段模拟校园周边道路返校时的模拟监控视频，请对视频中的车辆进行违停检测分析。
-为适应实际情况，此处我们考虑且仅考虑车辆占机动车道停车的违停情况。如视频中，车辆在该车道上只要超过5s不动即标记为违停（位置坐标需每秒至少移动10才算作移动；如有乘客上下车即无视上述规则，直接视作违停）。
-你的输出需包含以下结构化内容：
-1.视频有效性确认：说明是否具备分析条件（如清晰度、拍摄角度等）
-2.违停检测结果：
-若存在违停：标注车牌号码（含置信度百分比；如无法识别，则详细输出该车的特征信息）、说明判断依据（如果判断车辆未向前移动，需给出车辆每一帧所处的位置坐标，给出计算过程与结果后判断；如有上下客行为，额外加以说明）
-若未发现违停：说明判定依据（如车辆完全停在划线车位内）
-3.技术说明：
-车道线识别算法依据（颜色/虚实线类型判断）
-车辆停留时长计算逻辑（连续静止时间）
-特殊情况备注（如施工占道/故障车等非主观违停情形）
-本视频中，右上角的数字为计时器，格式为[分]:[秒].[毫秒]，供计算时间间隔用；绿幕（如有）遮挡的是位于两旁合法停车格内的汽车。
-请确保仅按照以上给出的规则进行判定，不要主观臆断，擅自修改规则。`
-
-const QVQ_PROMPT = `请观看这段视频，输出且仅输出其中识别到车辆的车牌号。`
-
-function getQwenPrompt(geminiResult: string, qvqResult: string): string {
-    return `现有一段违停的分析报告：
-${geminiResult}
-由QVQ-Max重新识别了车牌号为：
-${qvqResult}
-请帮我把QVQ-Max识别到的车牌号替换报告中原先识别到的车牌号，依据且仅依据原报告中的内容，重新生成一份详尽违停报告。请依次输出：
-1.违停车辆车牌号
-2.该车辆违停原因（根据原分析报告中的内容进一步总结得出）
-3.建议处罚（根据现行《中华人民共和国道路交通安全法》）
-请确保仅按照原报告中的内容进行重新输出，保证格式清晰明确，逻辑性强，不要主观臆断。`
-}
-
 export const useAnalysisStore = defineStore('analysis', () => {
     // State
     const currentStep = ref(1)
@@ -53,6 +24,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const videoPreviewUrl = ref<string | null>(null)
     const isProcessing = ref(false)
     const currentStreamingContent = ref('')
+    const sam3Data = ref<any>(null)
+    const uploadedFilename = ref<string>('')
 
     // 各步骤信息
     const steps = ref<Step[]>([
@@ -65,8 +38,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
         },
         {
             id: 2,
-            title: '违停检测',
-            description: '分析视频中的违停情况',
+            title: '车辆追踪',
+            description: 'SAM 3 分割追踪视频中的车辆并判定违停',
             status: 'pending',
             result: ''
         },
@@ -87,16 +60,23 @@ export const useAnalysisStore = defineStore('analysis', () => {
     ])
 
     // Computed
-    const geminiResult = computed(() => steps.value[1]!.result)
+    const sam3Result = computed(() => steps.value[1]!.result)
     const qvqResult = computed(() => steps.value[2]!.result)
     const finalResult = computed(() => steps.value[3]!.result)
     const hasVideo = computed(() => videoFile.value !== null)
     const isAllCompleted = computed(() => steps.value.every(s => s.status === 'completed'))
     const currentStepInfo = computed(() => steps.value[currentStep.value - 1])
 
-    // SSE for Gemini
-    const geminiSSE = useSSE('/api/analyze/gemini', {
+    // SSE for SAM 3
+    const sam3SSE = useSSE('/api/analyze/sam3', {
         onMessage: (data) => {
+            if (data.sam3_data) {
+                sam3Data.value = data.sam3_data
+            }
+            if (data.status) {
+                steps.value[1]!.result = data.text || ''
+                return
+            }
             const text = data.output?.choices?.[0]?.message?.content?.[0]?.text
             if (text) {
                 currentStreamingContent.value += text
@@ -114,6 +94,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
     // SSE for QVQ
     const qvqSSE = useSSE('/api/analyze/qvq', {
         onMessage: (data) => {
+            if (data.status) {
+                steps.value[2]!.result = data.text || ''
+                return
+            }
             const text = data.output?.choices?.[0]?.message?.content?.[0]?.text
             if (text) {
                 currentStreamingContent.value += text
@@ -128,7 +112,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         }
     })
 
-    // SSE for Qwen
+    // SSE for Qwen merge
     const qwenSSE = useSSE('/api/analyze/merge', {
         onMessage: (data) => {
             const text = data.output?.choices?.[0]?.message?.content?.[0]?.text
@@ -168,10 +152,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
         // 自动执行下一步
         if (stepIndex === 1) {
-            // Gemini 完成，自动执行 QVQ
+            // SAM 3 完成，自动执行 QVQ 车牌识别
             startQVQAnalysis()
         } else if (stepIndex === 2) {
-            // QVQ 完成，自动执行 Qwen 合并
+            // QVQ 完成，自动执行 Qwen 合并报告
             startMergeAnalysis()
         } else if (stepIndex === 3) {
             // 全部完成
@@ -198,6 +182,26 @@ export const useAnalysisStore = defineStore('analysis', () => {
         }
         steps.value[0]!.status = 'pending'
         steps.value[0]!.result = ''
+        uploadedFilename.value = ''
+    }
+
+    async function uploadVideo(): Promise<boolean> {
+        if (!videoFile.value) return false
+        const formData = new FormData()
+        formData.append('video', videoFile.value)
+        try {
+            const resp = await fetch('/api/upload-media', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            })
+            if (!resp.ok) return false
+            const data = await resp.json()
+            uploadedFilename.value = data.filename
+            return true
+        } catch {
+            return false
+        }
     }
 
     async function startAnalysis() {
@@ -206,6 +210,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         isProcessing.value = true
         currentStep.value = 2
         currentStreamingContent.value = ''
+        sam3Data.value = null
 
         // 重置步骤 2-4 的状态
         for (let i = 1; i < 4; i++) {
@@ -217,15 +222,22 @@ export const useAnalysisStore = defineStore('analysis', () => {
             }
         }
 
-        // 开始 Gemini 分析
+        // 先上传视频到后端
+        if (!uploadedFilename.value) {
+            const uploaded = await uploadVideo()
+            if (!uploaded) {
+                steps.value[1]!.status = 'error'
+                steps.value[1]!.error = '视频上传失败'
+                isProcessing.value = false
+                return
+            }
+        }
+
+        // 开始 SAM 3 分析
         steps.value[1]!.status = 'running'
 
-        const formData = new FormData()
-        formData.append('video', videoFile.value)
-        formData.append('prompt', GEMINI_PROMPT)
-
         try {
-            await geminiSSE.start({ video: videoFile.value.name, prompt: GEMINI_PROMPT, model: 'gemini' })
+            await sam3SSE.start({ video: uploadedFilename.value })
         } catch (err: any) {
             handleSSEError(err, 1)
         }
@@ -236,7 +248,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
         steps.value[2]!.status = 'running'
 
         try {
-            await qvqSSE.start({ video: videoFile.value?.name, prompt: QVQ_PROMPT, model: 'qvq' })
+            await qvqSSE.start({
+                video: uploadedFilename.value,
+                sam3_results: sam3Data.value
+            })
         } catch (err: any) {
             handleSSEError(err, 2)
         }
@@ -246,17 +261,18 @@ export const useAnalysisStore = defineStore('analysis', () => {
         currentStreamingContent.value = ''
         steps.value[3]!.status = 'running'
 
-        const prompt = getQwenPrompt(geminiResult.value, qvqResult.value)
-
         try {
-            await qwenSSE.start({ prompt, model: 'qwen' })
+            await qwenSSE.start({
+                sam3_result: sam3Result.value,
+                qvq_result: qvqResult.value
+            })
         } catch (err: any) {
             handleSSEError(err, 3)
         }
     }
 
     function stopAnalysis() {
-        geminiSSE.stop()
+        sam3SSE.stop()
         qvqSSE.stop()
         qwenSSE.stop()
         isProcessing.value = false
@@ -273,6 +289,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         stopAnalysis()
         currentStep.value = 1
         currentStreamingContent.value = ''
+        sam3Data.value = null
 
         // 重置所有步骤状态
         steps.value.forEach((step, index) => {
@@ -299,7 +316,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
         isProcessing,
         steps,
         // Computed
-        geminiResult,
+        sam3Result,
         qvqResult,
         finalResult,
         hasVideo,
