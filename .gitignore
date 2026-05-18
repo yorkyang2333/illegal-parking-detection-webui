@@ -11,6 +11,9 @@ frame_cache/
 backend/frame_cache/
 backend/uploads/
 
+# Database
+backend/instance/
+
 # Python cache
 __pycache__/
 *.pyc

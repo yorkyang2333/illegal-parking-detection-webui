@@ -44,15 +44,24 @@ cd "$PROJECT_ROOT/backend" || { echo -e "${RED}Error: backend directory not foun
 [ -f .env ] || { echo -e "${RED}Error: .env file missing in backend${NC}"; exit 1; }
 
 echo -e "${GREEN}[1/4] Preparing virtual environment...${NC}"
-# Recreate venv if missing or if it's using the incompatible 3.14 version
-if [ ! -d "venv" ] || [[ $(./venv/bin/python --version 2>&1) =~ "3.14" ]]; then
+# Recreate venv if missing, broken, or using incompatible 3.14
+NEED_VENV=false
+if [ ! -d "venv" ]; then
+    NEED_VENV=true
+elif ! venv/bin/python --version &>/dev/null; then
+    NEED_VENV=true
+elif [[ $(venv/bin/python --version 2>&1) =~ "3.14" ]]; then
+    NEED_VENV=true
+fi
+
+if [ "$NEED_VENV" = true ]; then
     [ -d "venv" ] && rm -rf venv
     $PYTHON_BIN -m venv venv
 fi
 source venv/bin/activate
 
-pip install -r requirements.txt > /dev/null 2>&1
-if [ $? -eq 0 ]; then
+pip install -r requirements.txt 2>&1 | grep -i "error\|ERROR" | grep -v "dependency conflicts" | head -5
+if [ ${PIPESTATUS[0]} -eq 0 ]; then
     echo -e "${GREEN}✓ Python dependencies installed${NC}"
 else
     echo -e "${RED}✗ Failed to install Python dependencies${NC}"
