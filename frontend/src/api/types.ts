@@ -42,8 +42,10 @@ export interface ConversationDetailResponse {
 }
 
 export interface SSEResponseChunk {
-  status?: string // Custom status like 'uploading_video', 'processing_video'
-  text?: string // Custom messages accompanying status
+  status?: string
+  text?: string
+  sam3_data?: Record<string, unknown>
+  error?: string
   output?: {
     choices: Array<{
       message: {

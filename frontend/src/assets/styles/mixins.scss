@@ -1,0 +1,43 @@
+@mixin mobile {
+  @media (max-width: 767px) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (min-width: 768px) and (max-width: 1023px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: 1024px) {
+    @content;
+  }
+}
+
+@mixin card-cream {
+  background: var(--color-surface-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+}
+
+@mixin card-dark {
+  background: var(--color-surface-dark);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  color: var(--color-on-dark);
+}
+
+@mixin card-hairline {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+}
+
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
