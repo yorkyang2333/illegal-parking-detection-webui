@@ -35,7 +35,15 @@
 <script setup lang="ts">
 import { Check, X } from 'lucide-vue-next'
 import MarkdownRenderer from '@/components/common/MarkdownRenderer.vue'
-import type { Step } from '@/stores/useAnalysisStore'
+
+interface Step {
+  id: number
+  title: string
+  description: string
+  status: 'pending' | 'running' | 'completed' | 'error'
+  result?: string
+  error?: string
+}
 
 defineProps<{
   steps: Step[]

@@ -137,7 +137,11 @@ watch(
   }
 )
 
+// Register video element so store can seek it (jumpToFrame)
+watch(videoRef, (el) => agentStore.registerVideoRef(el ?? null))
+
 onUnmounted(() => {
+  agentStore.registerVideoRef(null)
   const canvas = canvasRef.value
   if (canvas) {
     const ctx = canvas.getContext('2d')

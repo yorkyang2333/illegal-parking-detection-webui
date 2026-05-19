@@ -14,6 +14,7 @@ export interface ThoughtEntry {
   content: string
   type: 'thought' | 'tool_call' | 'tool_result'
   tool?: string
+  timestamp: number
 }
 
 export interface BoundingBox {
@@ -44,6 +45,8 @@ export interface ViolationRecord {
 
 export const useAgentStore = defineStore('agent', () => {
   const router = useRouter()
+
+  let _videoEl: HTMLVideoElement | null = null
 
   // 视频状态
   const videoFile = ref<File | null>(null)
@@ -111,6 +114,7 @@ export const useAgentStore = defineStore('agent', () => {
           id: thoughtCounter++,
           content: event.content as string,
           type: 'thought',
+          timestamp: Date.now(),
         })
         break
       case 'tool_call':
@@ -119,6 +123,7 @@ export const useAgentStore = defineStore('agent', () => {
           content: `调用工具 ${event.tool}`,
           type: 'tool_call',
           tool: event.tool as string,
+          timestamp: Date.now(),
         })
         break
       case 'tool_result':
@@ -127,6 +132,7 @@ export const useAgentStore = defineStore('agent', () => {
           content: event.summary as string,
           type: 'tool_result',
           tool: event.tool as string,
+          timestamp: Date.now(),
         })
         break
       case 'frame_annotation': {
@@ -161,6 +167,7 @@ export const useAgentStore = defineStore('agent', () => {
           id: thoughtCounter++,
           content: `错误：${event.message}`,
           type: 'thought',
+          timestamp: Date.now(),
         })
         isProcessing.value = false
         break
@@ -256,6 +263,16 @@ export const useAgentStore = defineStore('agent', () => {
     phases.value.forEach(p => (p.status = 'pending'))
   }
 
+  function registerVideoRef(el: HTMLVideoElement | null) {
+    _videoEl = el
+  }
+
+  function jumpToFrame(frameIndex: number) {
+    if (!_videoEl) return
+    const fps = videoFps.value || 30
+    _videoEl.currentTime = frameIndex / fps
+  }
+
   return {
     videoFile,
     videoPreviewUrl,
@@ -276,5 +293,7 @@ export const useAgentStore = defineStore('agent', () => {
     startAgentAnalysis,
     stopAnalysis,
     resetAnalysis,
+    registerVideoRef,
+    jumpToFrame,
   }
 })

@@ -1,56 +1,55 @@
 <template>
   <div class="thought-panel">
     <div class="thought-panel__header">
-      <span class="thought-panel__title">PRTS 分析核心</span>
-      <span v-if="agentStore.isProcessing" class="thought-panel__pulse" />
-    </div>
-
-    <div class="thought-panel__phases">
-      <div
-        v-for="phase in agentStore.phases"
-        :key="phase.id"
-        class="phase-item"
-        :class="`phase-item--${phase.status}`"
-      >
-        <span class="phase-item__dot" />
-        <span class="phase-item__label">{{ phase.label }}</span>
-      </div>
+      <span class="thought-panel__title">分析过程</span>
+      <span v-if="agentStore.isProcessing" class="thought-panel__indicator" />
+      <span v-if="agentStore.isCompleted" class="thought-panel__done-badge">
+        {{ agentStore.violations.length }} 项违停
+      </span>
     </div>
 
     <div class="thought-panel__stream" ref="streamRef">
       <div v-if="agentStore.thoughts.length === 0" class="thought-panel__empty">
         等待分析启动...
       </div>
-      <TransitionGroup name="thought-fade" tag="div">
+      <TransitionGroup name="thought-fade" tag="div" class="thought-panel__list">
         <div
           v-for="entry in agentStore.thoughts"
           :key="entry.id"
           class="thought-entry"
           :class="`thought-entry--${entry.type}`"
         >
-          <span class="thought-entry__icon">
-            {{ entry.type === 'tool_call' ? '⚙' : entry.type === 'tool_result' ? '✓' : '◈' }}
-          </span>
-          <span class="thought-entry__content">{{ entry.content }}</span>
+          <div class="thought-entry__body">
+            <div v-if="entry.type === 'tool_call'" class="thought-entry__tool-label">
+              {{ entry.tool }}
+            </div>
+            <span class="thought-entry__content">{{ entry.content }}</span>
+          </div>
+          <span class="thought-entry__time">{{ relativeTime(entry.timestamp) }}</span>
         </div>
       </TransitionGroup>
-    </div>
-
-    <div v-if="agentStore.isCompleted" class="thought-panel__footer">
-      <span class="thought-panel__done-badge">分析完成</span>
-      <span class="thought-panel__violation-count">
-        {{ agentStore.violations.length }} 辆违停
-      </span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAgentStore } from '@/stores/useAgentStore'
 
 const agentStore = useAgentStore()
 const streamRef = ref<HTMLDivElement>()
+const now = ref(Date.now())
+
+let timer: ReturnType<typeof setInterval>
+onMounted(() => { timer = setInterval(() => { now.value = Date.now() }, 10_000) })
+onUnmounted(() => clearInterval(timer))
+
+function relativeTime(ts: number): string {
+  const diff = Math.floor((now.value - ts) / 1000)
+  if (diff < 5) return '刚刚'
+  if (diff < 60) return `${diff}s 前`
+  return `${Math.floor(diff / 60)}m 前`
+}
 
 watch(
   () => agentStore.thoughts.length,
@@ -65,8 +64,8 @@ watch(
 
 <style scoped lang="scss">
 .thought-panel {
-  background: var(--color-surface-dark);
-  border-radius: var(--radius-lg);
+  background: var(--color-surface-dark, #181715);
+  border-radius: var(--radius-lg, 12px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -75,155 +74,142 @@ watch(
   &__header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: var(--space-md) var(--space-lg);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    gap: var(--space-sm, 8px);
+    padding: var(--space-md, 14px) var(--space-lg, 20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     flex-shrink: 0;
   }
 
   &__title {
-    font-family: var(--font-mono, monospace);
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: var(--color-primary, #7ba7c2);
-    text-transform: uppercase;
-  }
-
-  &__pulse {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--color-primary, #7ba7c2);
-    animation: pulse 1.2s ease-in-out infinite;
-  }
-
-  &__phases {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-xs, 4px) var(--space-sm, 8px);
-    padding: var(--space-sm, 8px) var(--space-lg, 16px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    flex-shrink: 0;
-  }
-
-  &__stream {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
     flex: 1;
-    overflow-y: auto;
-    padding: var(--space-md, 12px) var(--space-lg, 16px);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs, 4px);
-    min-height: 0;
   }
 
-  &__empty {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.25);
-    font-family: var(--font-mono, monospace);
-    padding: var(--space-md, 12px) 0;
-  }
-
-  &__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--space-sm, 8px) var(--space-lg, 16px);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    flex-shrink: 0;
+  &__indicator {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--color-primary, #cc785c);
+    animation: blink 1.4s ease-in-out infinite;
   }
 
   &__done-badge {
     font-size: 11px;
     color: var(--color-success, #5aac73);
     background: rgba(90, 172, 115, 0.15);
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-family: var(--font-mono, monospace);
+    padding: 2px 10px;
+    border-radius: 20px;
   }
 
-  &__violation-count {
+  &__stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-sm, 10px) var(--space-md, 14px);
+    min-height: 0;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__empty {
     font-size: 12px;
-    color: var(--color-on-dark-soft, rgba(255, 255, 255, 0.5));
-  }
-}
-
-.phase-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono, monospace);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
-
-  &__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
-    flex-shrink: 0;
-    transition: background 0.2s;
-  }
-
-  &__label {
-    transition: color 0.2s;
-  }
-
-  &--running {
-    color: var(--color-primary, #7ba7c2);
-
-    .phase-item__dot {
-      background: var(--color-primary, #7ba7c2);
-      animation: pulse 0.8s ease-in-out infinite;
-    }
-  }
-
-  &--done {
-    color: var(--color-success, #5aac73);
-
-    .phase-item__dot {
-      background: var(--color-success, #5aac73);
-    }
+    color: rgba(255, 255, 255, 0.2);
+    padding: var(--space-md, 12px) 4px;
   }
 }
 
 .thought-entry {
   display: flex;
-  gap: var(--space-xs, 4px);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
   font-size: 12px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.55;
 
-  &__icon {
-    flex-shrink: 0;
-    font-size: 11px;
-    margin-top: 2px;
-    opacity: 0.7;
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__tool-label {
+    display: inline-block;
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    background: rgba(232, 196, 106, 0.18);
+    color: #e8c46a;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    letter-spacing: 0.3px;
   }
 
   &__content {
+    color: rgba(255, 255, 255, 0.55);
     word-break: break-word;
+    display: block;
+  }
+
+  &__time {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.2);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  &--thought {
+    background: rgba(255, 255, 255, 0.025);
+    border-left-color: transparent;
   }
 
   &--tool_call {
-    color: #e8c46a;
+    background: rgba(232, 196, 106, 0.06);
+    border-left-color: #e8c46a;
+
+    .thought-entry__content {
+      color: rgba(232, 196, 106, 0.75);
+    }
   }
 
   &--tool_result {
-    color: var(--color-success, #5aac73);
+    background: rgba(90, 172, 115, 0.06);
+    border-left-color: var(--color-success, #5aac73);
+
+    .thought-entry__content {
+      color: rgba(90, 172, 115, 0.8);
+    }
   }
 }
 
 .thought-fade-enter-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
-
 .thought-fade-enter-from {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(5px);
 }
 
-@keyframes pulse {
+@keyframes blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  50% { opacity: 0.3; }
 }
 </style>
