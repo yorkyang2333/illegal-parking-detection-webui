@@ -1,47 +1,45 @@
 <template>
   <div class="analysis">
     <header class="analysis__header">
-      <h1 class="analysis__title">视频分析</h1>
-      <p class="analysis__desc">上传监控视频，AI 自动检测违停车辆并生成报告</p>
+      <h1 class="analysis__title">违停感知</h1>
+      <p class="analysis__desc">多模态 AI Agent 自主分析，实时标注检测结果</p>
     </header>
 
-    <div class="analysis__body">
-      <div class="analysis__left">
-        <VideoUpload
-          v-if="!analysisStore.hasVideo"
-          @file-selected="handleFileSelected"
-        />
-        <VideoPreview
-          v-else
-          :src="analysisStore.videoPreviewUrl!"
-          :filename="analysisStore.videoFile!.name"
-          @remove="handleRemoveVideo"
-        />
+    <!-- 上传区（无视频时显示） -->
+    <VideoUpload
+      v-if="!agentStore.hasVideo"
+      @file-selected="agentStore.setVideoFile($event)"
+    />
+
+    <!-- 主分析区 -->
+    <div v-else class="analysis__workspace">
+      <!-- 左：视频 + Canvas 标注 -->
+      <div class="analysis__video-col">
+        <VideoAnnotationCanvas :src="agentStore.videoPreviewUrl!" />
 
         <div class="analysis__actions">
           <BaseButton
-            v-if="analysisStore.hasVideo && !analysisStore.isProcessing && !analysisStore.isAllCompleted"
+            v-if="!agentStore.isProcessing && !agentStore.isCompleted"
             variant="primary"
-            @click="analysisStore.startAnalysis()"
+            @click="agentStore.startAgentAnalysis()"
           >
-            开始分析
+            启动 Agent 分析
           </BaseButton>
           <BaseButton
-            v-if="analysisStore.isProcessing"
+            v-if="agentStore.isProcessing"
             variant="secondary"
-            @click="analysisStore.stopAnalysis()"
+            @click="agentStore.stopAnalysis()"
           >
-            停止
+            中止
           </BaseButton>
           <BaseButton
-            v-if="analysisStore.isAllCompleted"
             variant="secondary"
-            @click="handleReset"
+            @click="agentStore.resetAnalysis()"
           >
-            新建分析
+            重置
           </BaseButton>
           <BaseButton
-            v-if="analysisStore.isAllCompleted"
+            v-if="agentStore.isCompleted"
             variant="primary"
             @click="handleDownload"
           >
@@ -50,41 +48,32 @@
         </div>
       </div>
 
-      <div class="analysis__right">
-        <PipelineTimeline :steps="analysisStore.steps" :current-step="analysisStore.currentStep" />
-        <AnalysisReport v-if="analysisStore.isAllCompleted" :content="analysisStore.finalResult" />
+      <!-- 右：Agent 思考面板 -->
+      <div class="analysis__agent-col">
+        <AgentThoughtPanel />
       </div>
     </div>
+
+    <!-- 最终报告（完成后展示） -->
+    <AnalysisReport
+      v-if="agentStore.isCompleted"
+      :content="agentStore.finalReport"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useAnalysisStore } from '@/stores/useAnalysisStore'
+import { useAgentStore } from '@/stores/useAgentStore'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import VideoUpload from '@/components/analysis/VideoUpload.vue'
-import VideoPreview from '@/components/analysis/VideoPreview.vue'
-import PipelineTimeline from '@/components/analysis/PipelineTimeline.vue'
+import VideoAnnotationCanvas from '@/components/analysis/VideoAnnotationCanvas.vue'
+import AgentThoughtPanel from '@/components/analysis/AgentThoughtPanel.vue'
 import AnalysisReport from '@/components/analysis/AnalysisReport.vue'
 
-const analysisStore = useAnalysisStore()
-
-function handleFileSelected(file: File) {
-  analysisStore.setVideoFile(file)
-}
-
-function handleRemoveVideo() {
-  analysisStore.clearVideoFile()
-  analysisStore.resetAnalysis()
-}
-
-function handleReset() {
-  analysisStore.clearVideoFile()
-  analysisStore.resetAnalysis()
-}
+const agentStore = useAgentStore()
 
 function handleDownload() {
-  const content = analysisStore.finalResult
-  const blob = new Blob([content], { type: 'text/markdown' })
+  const blob = new Blob([agentStore.finalReport], { type: 'text/markdown' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -97,10 +86,13 @@ function handleDownload() {
 <style scoped lang="scss">
 .analysis {
   padding: var(--space-xl) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
 }
 
 .analysis__header {
-  margin-bottom: var(--space-xl);
+  // keep existing header styles
 }
 
 .analysis__title {
@@ -117,9 +109,9 @@ function handleDownload() {
   color: var(--color-muted);
 }
 
-.analysis__body {
+.analysis__workspace {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 380px;
   gap: var(--space-xl);
   align-items: start;
 
@@ -128,16 +120,18 @@ function handleDownload() {
   }
 }
 
-.analysis__left {
+.analysis__video-col {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-md);
 }
 
-.analysis__right {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
+.analysis__agent-col {
+  height: 600px;
+
+  @media (max-width: 1023px) {
+    height: 400px;
+  }
 }
 
 .analysis__actions {
@@ -146,3 +140,4 @@ function handleDownload() {
   flex-wrap: wrap;
 }
 </style>
+

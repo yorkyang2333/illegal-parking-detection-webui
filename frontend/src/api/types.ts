@@ -57,6 +57,42 @@ export interface SSEResponseChunk {
   }
 }
 
+// Agent SSE Event Types
+export type AgentSSEEvent =
+  | { type: 'phase'; phase: number; label: string; status: 'start' | 'done' }
+  | { type: 'thought'; content: string }
+  | { type: 'tool_call'; tool: string; args: Record<string, unknown> }
+  | { type: 'tool_result'; tool: string; summary: string }
+  | { type: 'frame_annotation'; data: AgentFrameAnnotation }
+  | { type: 'final_report'; violations: AgentViolationRecord[]; markdown: string }
+  | { type: 'error'; message: string }
+
+export interface AgentFrameAnnotation {
+  frame_index: number
+  timestamp_sec: number
+  fps?: number
+  boxes: AgentBoundingBox[]
+}
+
+export interface AgentBoundingBox {
+  track_id: number
+  bbox: [number, number, number, number]
+  label: string
+  is_violation: boolean
+  confidence: number
+}
+
+export interface AgentViolationRecord {
+  track_id: number
+  license_plate: string
+  vehicle_class: string
+  violation_reason: string
+  stationary_duration_sec: number
+  best_frame_index: number
+  bbox: [number, number, number, number]
+  scene_context?: string
+}
+
 export interface ErrorResponse {
   error: string
 }
@@ -90,3 +126,4 @@ export interface AuthResponse {
 export interface UserResponse {
   user: User
 }
+
