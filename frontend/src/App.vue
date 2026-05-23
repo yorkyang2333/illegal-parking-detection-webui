@@ -1,5 +1,5 @@
 <template>
-  <div v-if="isLoading" class="loading-screen">
+  <div v-if="!isInitialized" class="loading-screen">
     <div class="loading-spinner" />
     <p class="loading-text">加载中...</p>
   </div>
@@ -8,19 +8,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useAuthStore } from '@/stores/useAuthStore'
 import AppShell from '@/components/layout/AppShell.vue'
 
 const authStore = useAuthStore()
-const isLoading = ref(true)
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
-
-onMounted(async () => {
-  await authStore.checkAuth()
-  isLoading.value = false
-})
+const isInitialized = computed(() => authStore.isInitialized)
 </script>
 
 <style scoped lang="scss">

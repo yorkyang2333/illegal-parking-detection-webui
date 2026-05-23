@@ -8,6 +8,7 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  const isInitialized = ref(false)
 
   // Computed
   const isAuthenticated = computed(() => user.value !== null)
@@ -20,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       const response = await loginApi(username, password, rememberMe)
       user.value = response.user || null
+      isInitialized.value = true
 
       return true
     } catch (err: unknown) {
@@ -37,6 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       const response = await registerApi(username, email, password)
       user.value = response.user || null
+      isInitialized.value = true
 
       return true
     } catch (err: unknown) {
@@ -65,21 +68,26 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function checkAuth() {
+    if (isInitialized.value) return true
+
     try {
       isLoading.value = true
       error.value = null
 
       const response = await getMeApi()
       user.value = response.user
+      isInitialized.value = true
 
       return true
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'UNAUTHORIZED') {
         user.value = null
+        isInitialized.value = true
         return false
       }
       error.value = err instanceof Error ? err.message : '获取用户信息失败'
       user.value = null
+      isInitialized.value = true
       return false
     } finally {
       isLoading.value = false
@@ -112,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isLoading,
     error,
+    isInitialized,
     // Computed
     isAuthenticated,
     // Actions
