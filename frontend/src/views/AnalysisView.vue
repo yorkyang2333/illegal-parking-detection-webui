@@ -1,8 +1,11 @@
 <template>
   <div class="analysis">
     <header class="analysis__header">
-      <h1 class="analysis__title">违停感知</h1>
-      <p class="analysis__desc">多模态 AI Agent 自主分析，实时标注检测结果</p>
+      <h1 class="analysis__title">
+        <span class="italic">Intelligent</span><br/>
+        Mobility Analysis.
+      </h1>
+      <p class="analysis__desc">上传视频，多模态 AI Agent 将为您自主分析并标注违停车辆</p>
     </header>
 
     <VideoUpload
@@ -139,24 +142,36 @@ function handleDownload() {
 
 <style scoped lang="scss">
 .analysis {
-  padding: var(--space-section) 0;
+  padding: var(--space-lg) 0 var(--space-xl);
   display: flex;
   flex-direction: column;
-  gap: var(--space-xxl);
+  gap: var(--space-lg);
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: calc(100vh - var(--nav-height) - var(--space-xl) * 2);
+}
+
+.analysis__header {
+  max-width: 800px;
+  margin-bottom: var(--space-md);
 }
 
 .analysis__title {
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 400;
-  letter-spacing: -0.5px;
   color: var(--color-ink);
   margin-bottom: var(--space-xs);
+  line-height: 1.1;
+
+  .italic {
+    font-style: italic;
+    color: var(--color-muted);
+  }
 }
 
 .analysis__desc {
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 15px;
   color: var(--color-muted);
 }
 

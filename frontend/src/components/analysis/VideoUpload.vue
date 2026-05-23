@@ -7,9 +7,13 @@
     @drop.prevent="handleDrop"
     @click="triggerInput"
   >
-    <Upload :size="40" class="upload-zone__icon" />
-    <p class="upload-zone__title">拖放视频文件到此处</p>
-    <p class="upload-zone__hint">或点击选择文件 (MP4, AVI, MOV)</p>
+    <div class="upload-zone__inner">
+      <div class="upload-zone__icon-wrapper">
+        <Upload :size="28" stroke-width="1.5" class="upload-zone__icon" />
+      </div>
+      <h2 class="upload-zone__title">拖放视频文件到此处</h2>
+      <p class="upload-zone__hint">或点击选择 (MP4, AVI, MOV)</p>
+    </div>
     <input
       ref="fileInput"
       type="file"
@@ -55,42 +59,82 @@ function handleFileChange(e: Event) {
 .upload-zone {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-section);
-  background: var(--color-surface-card);
+  background: var(--color-canvas);
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-xl);
   cursor: pointer;
-  transition: background-color 0.15s;
-  min-height: 400px;
+  flex: 1;
+  min-height: 50vh;
+  padding: var(--space-md);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.02);
 
   &:hover,
   &--dragover {
-    background: var(--color-surface-cream-strong);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.06);
+    border-color: rgba(0,0,0,0.1);
   }
+}
 
-  &__icon {
-    color: var(--color-primary);
-    margin-bottom: var(--space-xl);
-  }
+.upload-zone__inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-hairline-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  transition: border-color 0.4s ease;
+  text-align: center;
 
-  &__title {
-    font-family: var(--font-display);
-    font-size: 28px;
-    font-weight: 400;
-    color: var(--color-ink);
-    margin-bottom: var(--space-sm);
+  .upload-zone:hover & {
+    border-color: rgba(204, 120, 92, 0.3);
   }
+}
 
-  &__hint {
-    font-family: var(--font-body);
-    font-size: 16px;
-    color: var(--color-muted);
-  }
+.upload-zone__icon-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-surface-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-lg);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 
-  &__input {
-    display: none;
+  .upload-zone:hover & {
+    transform: scale(1.05);
+    background: var(--color-primary);
   }
+}
+
+.upload-zone__icon {
+  color: var(--color-ink);
+  transition: color 0.4s;
+
+  .upload-zone:hover & {
+    color: var(--color-on-primary);
+  }
+}
+
+.upload-zone__title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--color-ink);
+  margin-bottom: var(--space-xs);
+}
+
+.upload-zone__hint {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+.upload-zone__input {
+  display: none;
 }
 </style>
