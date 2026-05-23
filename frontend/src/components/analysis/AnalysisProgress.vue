@@ -9,7 +9,7 @@
       <div
         v-if="index > 0"
         class="progress-bar__line"
-        :class="{ 'progress-bar__line--done': phases[index - 1].status === 'done' }"
+        :class="{ 'progress-bar__line--done': phases[index - 1]?.status === 'done' }"
       />
 
       <div class="progress-bar__node-wrap">

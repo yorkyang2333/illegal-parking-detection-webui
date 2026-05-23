@@ -13,7 +13,9 @@
     <div v-else class="analysis__workspace">
       <!-- 左：视频 + 操作 + 进度条 -->
       <div class="col-video">
-        <VideoAnnotationCanvas :src="agentStore.videoPreviewUrl!" />
+        <div class="product-mockup">
+          <VideoAnnotationCanvas :src="agentStore.videoPreviewUrl!" />
+        </div>
 
         <div class="analysis__actions">
           <BaseButton
@@ -60,8 +62,8 @@
             <span class="results-panel__title">检测结果</span>
             <span
               v-if="agentStore.isCompleted"
-              class="results-panel__count"
-              :class="agentStore.violations.length > 0 ? 'results-panel__count--alert' : 'results-panel__count--ok'"
+              class="badge-pill"
+              :class="agentStore.violations.length > 0 ? 'badge-coral' : 'badge-pill'"
             >
               {{ agentStore.violations.length }} 辆
             </span>
@@ -137,38 +139,35 @@ function handleDownload() {
 
 <style scoped lang="scss">
 .analysis {
-  padding: var(--space-xl, 40px) 0;
+  padding: var(--space-section) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl, 40px);
-}
-
-.analysis__header {
-  // intentionally minimal
+  gap: var(--space-xxl);
 }
 
 .analysis__title {
-  font-family: var(--font-display, 'Cormorant Garamond', serif);
+  font-family: var(--font-display);
   font-size: 36px;
   font-weight: 400;
   letter-spacing: -0.5px;
-  color: var(--color-ink, #1a1916);
-  margin-bottom: var(--space-xs, 6px);
+  color: var(--color-ink);
+  margin-bottom: var(--space-xs);
 }
 
 .analysis__desc {
-  font-size: 15px;
-  color: var(--color-muted, #a09a8e);
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--color-muted);
 }
 
 .analysis__workspace {
   display: grid;
-  grid-template-columns: 1fr 300px 300px;
-  gap: var(--space-lg, 24px);
+  grid-template-columns: 1fr 320px 320px;
+  gap: var(--space-lg);
   align-items: start;
 
   @media (max-width: 1200px) {
-    grid-template-columns: 1fr 260px 260px;
+    grid-template-columns: 1fr 280px 280px;
   }
 
   @media (max-width: 900px) {
@@ -187,25 +186,31 @@ function handleDownload() {
 .col-video {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md, 16px);
+  gap: var(--space-xl);
+}
+
+.product-mockup {
+  background: var(--color-surface-dark);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
 }
 
 .col-thoughts,
 .col-results {
   min-height: 520px;
-  height: 560px;
+  height: 600px;
 }
 
 .analysis__actions {
   display: flex;
-  gap: var(--space-sm, 8px);
+  gap: var(--space-sm);
   flex-wrap: wrap;
 }
 
 // Results panel
 .results-panel {
-  background: var(--color-surface-card, #efe9de);
-  border-radius: var(--radius-lg, 12px);
+  background: var(--color-surface-card);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -215,32 +220,32 @@ function handleDownload() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--space-md, 14px) var(--space-lg, 20px);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    padding: var(--space-md) var(--space-xl);
+    border-bottom: 1px solid var(--color-hairline);
     flex-shrink: 0;
   }
 
   &__title {
-    font-size: 14px;
+    font-family: var(--font-body);
+    font-size: 18px;
     font-weight: 500;
-    color: var(--color-ink, #1a1916);
+    color: var(--color-ink);
   }
 
-  &__count {
-    font-size: 12px;
-    padding: 2px 10px;
-    border-radius: 20px;
-    font-family: var(--font-mono, monospace);
+  .badge-pill {
+    background: var(--color-surface-cream-strong);
+    color: var(--color-ink);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+  }
 
-    &--alert {
-      background: rgba(217, 79, 79, 0.12);
-      color: var(--color-error, #d94f4f);
-    }
-
-    &--ok {
-      background: rgba(90, 172, 115, 0.15);
-      color: var(--color-success, #5aac73);
-    }
+  .badge-coral {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
   }
 
   &__placeholder {
@@ -248,35 +253,35 @@ function handleDownload() {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
-    color: var(--color-muted, #a09a8e);
-    padding: var(--space-lg, 24px);
+    font-size: 14px;
+    color: var(--color-muted);
+    padding: var(--space-lg);
     text-align: center;
   }
 
   &__list {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-sm, 10px) var(--space-md, 14px);
+    padding: var(--space-md) var(--space-lg);
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm, 10px);
+    gap: var(--space-sm);
 
     &::-webkit-scrollbar {
       width: 4px;
     }
     &::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.1);
+      background: var(--color-hairline);
       border-radius: 2px;
     }
   }
 
   &__skeleton {
     flex: 1;
-    padding: var(--space-sm, 10px) var(--space-md, 14px);
+    padding: var(--space-md) var(--space-lg);
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm, 10px);
+    gap: var(--space-sm);
   }
 
   &__empty {
@@ -285,9 +290,9 @@ function handleDownload() {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--space-sm, 10px);
-    color: var(--color-success, #5aac73);
-    font-size: 13px;
+    gap: var(--space-sm);
+    color: var(--color-success);
+    font-size: 14px;
 
     svg {
       width: 36px;
@@ -298,16 +303,15 @@ function handleDownload() {
 }
 
 .skeleton-card {
-  height: 100px;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: var(--radius-md, 8px);
+  height: 120px;
+  background: var(--color-hairline);
+  border-radius: var(--radius-md);
   animation: skeleton-pulse 1.4s ease-in-out infinite;
 
   &:nth-child(2) { animation-delay: 0.2s; }
   &:nth-child(3) { animation-delay: 0.4s; }
 }
 
-// Slide-up transition for report
 .slide-up-enter-active {
   transition: opacity 0.35s ease, transform 0.35s ease;
 }

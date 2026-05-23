@@ -1,5 +1,5 @@
 <template>
-  <div class="thought-panel">
+  <div class="thought-panel code-window-card">
     <div class="thought-panel__header">
       <span class="thought-panel__title">分析过程</span>
       <span v-if="agentStore.isProcessing" class="thought-panel__indicator" />
@@ -64,8 +64,8 @@ watch(
 
 <style scoped lang="scss">
 .thought-panel {
-  background: var(--color-surface-dark, #181715);
-  border-radius: var(--radius-lg, 12px);
+  background: var(--color-surface-dark);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -74,40 +74,43 @@ watch(
   &__header {
     display: flex;
     align-items: center;
-    gap: var(--space-sm, 8px);
-    padding: var(--space-md, 14px) var(--space-lg, 20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-xl);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     flex-shrink: 0;
   }
 
   &__title {
+    font-family: var(--font-body);
     font-size: 14px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-on-dark);
     flex: 1;
   }
 
   &__indicator {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: var(--color-primary, #cc785c);
+    background: var(--color-primary);
     animation: blink 1.4s ease-in-out infinite;
   }
 
   &__done-badge {
     font-size: 11px;
-    color: var(--color-success, #5aac73);
-    background: rgba(90, 172, 115, 0.15);
+    color: var(--color-success);
+    background: rgba(93, 184, 114, 0.15);
     padding: 2px 10px;
-    border-radius: 20px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
   }
 
   &__stream {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-sm, 10px) var(--space-md, 14px);
+    padding: var(--space-lg) var(--space-xl);
     min-height: 0;
+    background: var(--color-surface-dark-soft);
 
     &::-webkit-scrollbar {
       width: 4px;
@@ -124,13 +127,14 @@ watch(
   &__list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-sm);
   }
 
   &__empty {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.2);
-    padding: var(--space-md, 12px) 4px;
+    font-size: 14px;
+    color: var(--color-on-dark-soft);
+    padding: var(--space-md) 0;
+    font-family: var(--font-mono);
   }
 }
 
@@ -138,12 +142,12 @@ watch(
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 6px;
-  border-left: 2px solid transparent;
-  font-size: 12px;
-  line-height: 1.55;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 1.6;
+  font-family: var(--font-mono);
 
   &__body {
     flex: 1;
@@ -152,50 +156,47 @@ watch(
 
   &__tool-label {
     display: inline-block;
-    font-family: var(--font-mono, monospace);
-    font-size: 10px;
-    background: rgba(232, 196, 106, 0.18);
-    color: #e8c46a;
-    padding: 1px 6px;
-    border-radius: 4px;
-    margin-bottom: 3px;
-    letter-spacing: 0.3px;
+    font-size: 12px;
+    background: rgba(232, 165, 90, 0.15);
+    color: var(--color-accent-amber);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-xs);
   }
 
   &__content {
-    color: rgba(255, 255, 255, 0.55);
+    color: var(--color-on-dark-soft);
     word-break: break-word;
     display: block;
   }
 
   &__time {
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.2);
+    font-size: 12px;
+    color: var(--color-muted);
     white-space: nowrap;
     flex-shrink: 0;
     margin-top: 2px;
   }
 
   &--thought {
-    background: rgba(255, 255, 255, 0.025);
-    border-left-color: transparent;
+    background: rgba(255, 255, 255, 0.02);
   }
 
   &--tool_call {
-    background: rgba(232, 196, 106, 0.06);
-    border-left-color: #e8c46a;
+    background: rgba(232, 165, 90, 0.05);
 
     .thought-entry__content {
-      color: rgba(232, 196, 106, 0.75);
+      color: var(--color-accent-amber);
+      opacity: 0.8;
     }
   }
 
   &--tool_result {
-    background: rgba(90, 172, 115, 0.06);
-    border-left-color: var(--color-success, #5aac73);
+    background: rgba(93, 184, 114, 0.05);
 
     .thought-entry__content {
-      color: rgba(90, 172, 115, 0.8);
+      color: var(--color-success);
+      opacity: 0.9;
     }
   }
 }

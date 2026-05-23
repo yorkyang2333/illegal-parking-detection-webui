@@ -1,8 +1,9 @@
 <template>
   <div class="violation-card" @click="emit('jump', record.best_frame_index)">
     <div class="violation-card__header">
-      <span class="violation-card__id">车辆 #{{ record.track_id }}</span>
-      <span class="violation-card__type-badge">{{ record.vehicle_class }}</span>
+      <span class="violation-card__id">Vehicle #{{ record.track_id }}</span>
+      <span class="badge-pill">{{ record.vehicle_class }}</span>
+      <span class="badge-coral">VIOLATION</span>
     </div>
 
     <div class="violation-card__plate">{{ record.license_plate || '未识别' }}</div>
@@ -18,7 +19,7 @@
       {{ record.scene_context }}
     </div>
 
-    <div class="violation-card__jump-hint">点击跳转至违停帧</div>
+    <div class="violation-card__jump-hint">点击跳转至违停帧 →</div>
   </div>
 </template>
 
@@ -38,19 +39,16 @@ function formatDuration(sec: number): string {
 
 <style scoped lang="scss">
 .violation-card {
-  background: var(--color-canvas, #faf9f5);
-  border: 1px solid var(--color-hairline, #d9d3c8);
-  border-left: 3px solid var(--color-error, #d94f4f);
-  border-radius: var(--radius-lg, 12px);
-  padding: var(--space-md, 16px) var(--space-lg, 20px);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.15s ease, background-color 0.15s ease;
   position: relative;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-
+    background: var(--color-surface-soft);
     .violation-card__jump-hint {
       opacity: 1;
     }
@@ -59,78 +57,92 @@ function formatDuration(sec: number): string {
   &__header {
     display: flex;
     align-items: center;
-    gap: var(--space-sm, 8px);
-    margin-bottom: var(--space-xs, 6px);
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-sm);
   }
 
   &__id {
-    font-family: var(--font-mono, monospace);
-    font-size: 11px;
-    color: var(--color-muted, #a09a8e);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--color-muted);
     letter-spacing: 0.5px;
+    margin-right: auto;
   }
 
-  &__type-badge {
+  .badge-pill {
     font-size: 11px;
-    background: var(--color-surface-card, #efe9de);
-    color: var(--color-body, #5c574f);
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-family: var(--font-mono, monospace);
+    background: var(--color-surface-card);
+    color: var(--color-ink);
+    padding: 2px 10px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+  }
+
+  .badge-coral {
+    font-size: 11px;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    padding: 2px 10px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    letter-spacing: 1px;
+    text-transform: uppercase;
   }
 
   &__plate {
-    font-family: var(--font-mono, monospace);
-    font-size: 20px;
-    font-weight: 500;
-    color: var(--color-ink, #1a1916);
-    letter-spacing: 1.5px;
-    margin-bottom: var(--space-sm, 8px);
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--color-ink);
+    letter-spacing: -0.3px;
+    margin-bottom: var(--space-md);
   }
 
   &__meta {
     display: flex;
     align-items: baseline;
-    gap: 6px;
-    margin-bottom: var(--space-xs, 6px);
+    gap: var(--space-xs);
+    margin-bottom: var(--space-sm);
   }
 
   &__meta-label {
-    font-size: 11px;
-    color: var(--color-muted, #a09a8e);
+    font-size: 13px;
+    color: var(--color-muted);
   }
 
   &__duration {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
-    color: var(--color-error, #d94f4f);
-    font-family: var(--font-mono, monospace);
+    color: var(--color-error);
+    font-family: var(--font-mono);
   }
 
   &__reason {
-    font-size: 13px;
-    color: var(--color-body, #5c574f);
-    line-height: 1.5;
-    margin: 0 0 var(--space-xs, 6px);
+    font-size: 14px;
+    color: var(--color-body);
+    line-height: 1.55;
+    margin: 0 0 var(--space-sm);
   }
 
   &__context {
-    font-size: 12px;
-    color: var(--color-muted, #a09a8e);
-    background: var(--color-surface-card, #efe9de);
-    border-radius: 6px;
-    padding: 6px 10px;
-    line-height: 1.5;
-    margin-bottom: var(--space-xs, 6px);
+    font-size: 13px;
+    color: var(--color-muted-soft);
+    background: transparent;
+    border-left: 2px solid var(--color-hairline);
+    padding-left: var(--space-sm);
+    line-height: 1.55;
+    margin-bottom: var(--space-md);
   }
 
   &__jump-hint {
-    font-size: 11px;
-    color: var(--color-primary, #cc785c);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-primary);
     opacity: 0;
-    transition: opacity 0.18s;
+    transition: opacity 0.15s;
     text-align: right;
-    margin-top: 4px;
+    margin-top: var(--space-sm);
   }
 }
 </style>

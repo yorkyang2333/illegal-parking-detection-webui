@@ -3,7 +3,7 @@
     <div class="top-nav__inner">
       <div class="top-nav__left">
         <router-link to="/" class="top-nav__brand">
-          <span class="top-nav__logo">◆</span>
+          <span class="top-nav__logo">✦</span>
           <span class="top-nav__title">车辆违停感知</span>
         </router-link>
       </div>

@@ -57,34 +57,35 @@ function handleFileChange(e: Event) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-xxl);
+  padding: var(--space-section);
   background: var(--color-surface-card);
-  border: 2px dashed var(--color-hairline);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-xl);
   cursor: pointer;
-  transition: border-color 0.15s, background-color 0.15s;
-  min-height: 240px;
+  transition: background-color 0.15s;
+  min-height: 400px;
 
   &:hover,
   &--dragover {
-    border-color: var(--color-primary);
-    background: var(--color-surface-soft);
+    background: var(--color-surface-cream-strong);
   }
 
   &__icon {
-    color: var(--color-muted-soft);
-    margin-bottom: var(--space-md);
+    color: var(--color-primary);
+    margin-bottom: var(--space-xl);
   }
 
   &__title {
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--color-body-strong);
-    margin-bottom: var(--space-xs);
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--color-ink);
+    margin-bottom: var(--space-sm);
   }
 
   &__hint {
-    font-size: 14px;
+    font-family: var(--font-body);
+    font-size: 16px;
     color: var(--color-muted);
   }
 

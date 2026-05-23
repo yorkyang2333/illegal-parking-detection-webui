@@ -22,7 +22,7 @@ import { ref, watch, onUnmounted } from 'vue'
 import { useAgentStore } from '@/stores/useAgentStore'
 import type { FrameAnnotation } from '@/stores/useAgentStore'
 
-const props = defineProps<{ src: string }>()
+defineProps<{ src: string }>()
 
 const agentStore = useAgentStore()
 const videoRef = ref<HTMLVideoElement>()

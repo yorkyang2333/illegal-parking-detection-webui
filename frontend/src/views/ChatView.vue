@@ -2,7 +2,10 @@
   <div class="chat-view">
     <aside class="chat-view__sidebar" :class="{ 'chat-view__sidebar--open': sidebarOpen }">
       <div class="sidebar-header">
-        <h3 class="sidebar-title">对话</h3>
+        <h3 class="sidebar-title">
+          <span class="sidebar-title__icon">✦</span>
+          COMMAND.
+        </h3>
         <BaseButton variant="primary" @click="handleNewChat" class="sidebar-new-btn">
           新对话
         </BaseButton>
@@ -85,10 +88,28 @@ function handleUpload(file: File) {
 .chat-view__sidebar {
   width: 280px;
   flex-shrink: 0;
-  border-right: 1px solid var(--color-hairline-soft);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
   flex-direction: column;
-  background: var(--color-canvas);
+  background: var(--color-surface-dark);
+  color: var(--color-canvas);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
 
   @media (max-width: 767px) {
     position: fixed;
@@ -110,14 +131,23 @@ function handleUpload(file: File) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--color-hairline-soft);
+  padding: var(--space-lg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .sidebar-title {
-  font-size: 15px;
+  font-family: var(--font-mono);
+  font-size: 14px;
   font-weight: 500;
-  color: var(--color-ink);
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+
+  &__icon {
+    color: var(--color-primary);
+  }
 }
 
 .sidebar-new-btn {
@@ -132,6 +162,7 @@ function handleUpload(file: File) {
   flex-direction: column;
   min-width: 0;
   position: relative;
+  background: var(--color-canvas);
 }
 
 .chat-view__toggle {

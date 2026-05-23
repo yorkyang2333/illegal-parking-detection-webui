@@ -1,13 +1,17 @@
 <template>
   <div class="settings">
     <header class="settings__header">
-      <h1 class="settings__title">设置</h1>
+      <h1 class="settings__title">
+        System <br/>
+        <span class="italic">Preferences.</span>
+      </h1>
+      <p class="settings__desc">管理您的系统偏好与基础模型配置</p>
     </header>
 
     <div class="settings__sections">
-      <section class="settings-section">
+      <section class="settings-section feature-card">
         <h2 class="settings-section__title">API 密钥</h2>
-        <p class="settings-section__desc">配置 AI 模型服务的 API 密钥</p>
+        <p class="settings-section__desc">配置 AI 模型服务的 API 密钥，用于调用后台推理能力。</p>
 
         <div class="settings-section__fields">
           <BaseInput
@@ -22,7 +26,7 @@
             placeholder="用于对话模式"
             type="password"
           />
-          <BaseButton variant="primary" :loading="saving" @click="saveKeys">
+          <BaseButton variant="primary" :loading="saving" @click="saveKeys" class="settings-btn">
             保存密钥
           </BaseButton>
           <p v-if="saveMessage" class="settings-section__msg" :class="{ 'settings-section__msg--error': saveError }">
@@ -31,15 +35,15 @@
         </div>
       </section>
 
-      <section class="settings-section">
+      <section class="settings-section feature-card">
         <h2 class="settings-section__title">个人信息</h2>
-        <p class="settings-section__desc">修改您的账号信息</p>
+        <p class="settings-section__desc">修改您的账号标识与安全凭证。</p>
 
         <div class="settings-section__fields">
           <BaseInput v-model="profile.username" label="用户名" />
           <BaseInput v-model="profile.email" label="邮箱" type="email" />
           <BaseInput v-model="profile.password" label="新密码" type="password" placeholder="留空则不修改" />
-          <BaseButton variant="primary" :loading="updatingProfile" @click="saveProfile">
+          <BaseButton variant="primary" :loading="updatingProfile" @click="saveProfile" class="settings-btn">
             更新信息
           </BaseButton>
           <p v-if="profileMessage" class="settings-section__msg" :class="{ 'settings-section__msg--error': profileError }">
@@ -133,19 +137,33 @@ async function saveProfile() {
 <style scoped lang="scss">
 .settings {
   padding: var(--space-xl) 0;
-  max-width: 560px;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .settings__header {
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-xxl);
 }
 
 .settings__title {
   font-family: var(--font-display);
-  font-size: 36px;
+  font-size: clamp(40px, 5vw, 56px);
+  line-height: 0.95;
   font-weight: 400;
-  letter-spacing: -0.5px;
+  letter-spacing: -1.5px;
   color: var(--color-ink);
+  margin-bottom: var(--space-sm);
+
+  .italic {
+    font-style: italic;
+    color: var(--color-muted);
+  }
+}
+
+.settings__desc {
+  font-family: var(--font-body);
+  font-size: 16px;
+  color: var(--color-muted);
 }
 
 .settings__sections {
@@ -154,35 +172,56 @@ async function saveProfile() {
   gap: var(--space-xxl);
 }
 
+.feature-card {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xxl);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+  }
+}
+
 .settings-section {
   &__title {
     font-family: var(--font-display);
-    font-size: 22px;
+    font-size: 28px;
     font-weight: 400;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.5px;
     color: var(--color-ink);
     margin-bottom: var(--space-xs);
   }
 
   &__desc {
-    font-size: 14px;
+    font-size: 15px;
     color: var(--color-muted);
-    margin-bottom: var(--space-lg);
+    margin-bottom: var(--space-xl);
   }
 
   &__fields {
     display: flex;
     flex-direction: column;
-    gap: var(--space-md);
+    gap: var(--space-lg);
   }
 
   &__msg {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--color-success);
+    margin-top: calc(-1 * var(--space-sm));
 
     &--error {
       color: var(--color-error);
     }
   }
+}
+
+.settings-btn {
+  align-self: flex-start;
+  min-width: 120px;
+  margin-top: var(--space-sm);
 }
 </style>

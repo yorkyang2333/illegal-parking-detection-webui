@@ -1,38 +1,41 @@
 <template>
-  <div class="chat-input">
-    <div v-if="hasMedia" class="chat-input__media-badge">
-      <Paperclip :size="14" />
-      <span>已附加文件</span>
-    </div>
-    <div class="chat-input__row">
-      <label class="chat-input__upload">
-        <Paperclip :size="18" />
-        <input type="file" accept="video/*,image/*" @change="handleFileChange" />
-      </label>
-      <textarea
-        ref="textareaRef"
-        v-model="input"
-        class="chat-input__textarea"
-        placeholder="输入消息..."
-        rows="1"
-        @input="autoResize"
-        @keydown.enter.exact.prevent="handleSend"
-      />
-      <button
-        v-if="isStreaming"
-        class="chat-input__stop"
-        @click="$emit('stop')"
-      >
-        <Square :size="16" />
-      </button>
-      <button
-        v-else
-        class="chat-input__send"
-        :disabled="!input.trim()"
-        @click="handleSend"
-      >
-        <ArrowUp :size="18" />
-      </button>
+  <div class="chat-input-container">
+    <div class="chat-input">
+      <div v-if="hasMedia" class="chat-input__media-badge">
+        <Paperclip :size="14" />
+        <span>已附加文件</span>
+      </div>
+      <div class="chat-input__row">
+        <label class="chat-input__upload">
+          <Paperclip :size="20" stroke-width="1.5" />
+          <input type="file" accept="video/*,image/*" @change="handleFileChange" />
+        </label>
+        <textarea
+          ref="textareaRef"
+          v-model="input"
+          class="chat-input__textarea"
+          placeholder="有什么我可以帮您的？"
+          rows="1"
+          @input="autoResize"
+          @keydown.enter.exact.prevent="handleSend"
+        />
+        <button
+          v-if="isStreaming"
+          class="chat-input__stop"
+          @click="$emit('stop')"
+        >
+          <Square :size="16" />
+        </button>
+        <button
+          v-else
+          class="chat-input__send"
+          :class="{ 'chat-input__send--active': input.trim() }"
+          :disabled="!input.trim()"
+          @click="handleSend"
+        >
+          <ArrowUp :size="18" stroke-width="2.5" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -76,47 +79,67 @@ function handleFileChange(e: Event) {
 </script>
 
 <style scoped lang="scss">
+.chat-input-container {
+  padding: var(--space-xl);
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(to top, var(--color-canvas) 70%, transparent);
+}
+
 .chat-input {
-  padding: var(--space-md) var(--space-xl);
-  border-top: 1px solid var(--color-hairline-soft);
+  width: 100%;
+  max-width: 800px;
+  position: relative;
 }
 
 .chat-input__media-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
   color: var(--color-primary);
   background: rgba(204, 120, 92, 0.1);
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: var(--radius-pill);
-  margin-bottom: var(--space-xs);
+  position: absolute;
+  top: -36px;
+  left: var(--space-md);
 }
 
 .chat-input__row {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-xs);
-  background: var(--color-surface-soft);
+  gap: var(--space-sm);
+  background: var(--color-canvas);
   border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-lg);
-  padding: var(--space-xs) var(--space-sm);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  border-radius: 32px;
+  padding: 8px 12px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:focus-within {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    border-color: rgba(0,0,0,0.15);
+  }
 }
 
 .chat-input__upload {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   color: var(--color-muted);
   cursor: pointer;
   flex-shrink: 0;
+  transition: all 0.2s;
 
   &:hover {
     color: var(--color-ink);
-    background: var(--color-surface-card);
+    background: var(--color-surface-soft);
   }
 
   input {
@@ -129,12 +152,14 @@ function handleFileChange(e: Event) {
   border: none;
   outline: none;
   background: transparent;
-  font-size: 15px;
+  font-family: var(--font-body);
+  font-size: 16px;
   line-height: 1.5;
   color: var(--color-ink);
   resize: none;
-  padding: 8px 0;
+  padding: 8px 4px;
   max-height: 160px;
+  align-self: center;
 
   &::placeholder {
     color: var(--color-muted-soft);
@@ -146,24 +171,39 @@ function handleFileChange(e: Event) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .chat-input__send {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
+  background: var(--color-surface-soft);
+  color: var(--color-muted-soft);
 
-  &:disabled {
-    background: var(--color-primary-disabled);
-    color: var(--color-muted);
+  &--active {
+    background: var(--color-primary);
+    color: var(--color-canvas);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(204, 120, 92, 0.3);
+
+    &:hover {
+      background: var(--color-primary-hover);
+      transform: translateY(-4px);
+    }
   }
 }
 
 .chat-input__stop {
   background: var(--color-error);
   color: white;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  }
 }
 </style>

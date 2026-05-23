@@ -44,45 +44,61 @@ function formatDate(dateStr: string): string {
 .conversation-list {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-xs);
+  padding: var(--space-md);
+  
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
 }
 
 .conversation-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: background-color 0.1s;
+  transition: all 0.2s ease;
+  margin-bottom: var(--space-xs);
+  border: 1px solid transparent;
 
   &:hover {
-    background: var(--color-surface-soft);
+    background: rgba(255, 255, 255, 0.04);
   }
 
   &--active {
-    background: var(--color-surface-card);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   &__title {
+    font-family: var(--font-body);
     font-size: 14px;
     font-weight: 500;
-    color: var(--color-ink);
+    color: rgba(255, 255, 255, 0.9);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   &__date {
-    font-size: 12px;
-    color: var(--color-muted-soft);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.5px;
   }
 }
 
 .conversation-list__empty {
   padding: var(--space-xl);
   text-align: center;
-  color: var(--color-muted-soft);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 1px;
 }
 </style>

@@ -1,8 +1,11 @@
 <template>
   <div class="message-thread" ref="threadRef">
     <div v-if="messages.length === 0" class="message-thread__empty">
-      <h2 class="empty-title">开始对话</h2>
-      <p class="empty-desc">输入问题或上传媒体文件，AI 将为您分析</p>
+      <h2 class="empty-title">
+        <span class="italic">Mobility</span> <br/>
+        Intelligence.
+      </h2>
+      <p class="empty-desc">输入问题或上传视频，AI 将为您深入分析违停场景。</p>
     </div>
 
     <ChatMessage
@@ -50,10 +53,21 @@ watch(() => props.messages[props.messages.length - 1]?.content, async () => {
 .message-thread {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-xl);
+  padding: var(--space-xxl) var(--space-xl);
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-xl);
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-hairline);
+    border-radius: 3px;
+  }
 }
 
 .message-thread__empty {
@@ -63,33 +77,41 @@ watch(() => props.messages[props.messages.length - 1]?.content, async () => {
   align-items: center;
   justify-content: center;
   text-align: center;
+  animation: fadeIn 0.8s ease;
 }
 
 .empty-title {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: clamp(48px, 6vw, 72px);
   font-weight: 400;
-  letter-spacing: -0.3px;
+  line-height: 0.95;
+  letter-spacing: -2px;
   color: var(--color-ink);
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-md);
+
+  .italic {
+    font-style: italic;
+    color: var(--color-muted);
+  }
 }
 
 .empty-desc {
-  font-size: 15px;
+  font-family: var(--font-body);
+  font-size: 16px;
   color: var(--color-muted);
 }
 
 .streaming-indicator {
   display: flex;
-  gap: 4px;
-  padding: var(--space-sm) 0;
+  gap: 6px;
+  padding: var(--space-md) 0;
 }
 
 .streaming-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--color-muted-soft);
+  background: var(--color-primary);
   animation: pulse 1.2s ease-in-out infinite;
 
   &:nth-child(2) { animation-delay: 0.2s; }
@@ -97,7 +119,11 @@ watch(() => props.messages[props.messages.length - 1]?.content, async () => {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>
