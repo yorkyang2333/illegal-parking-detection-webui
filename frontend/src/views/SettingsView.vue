@@ -5,29 +5,80 @@
         System <br/>
         <span class="italic">Preferences.</span>
       </h1>
-      <p class="settings__desc">管理您的系统偏好与基础模型配置</p>
+      <p class="settings__desc">管理您的系统偏好与 AI 模型供应商配置</p>
     </header>
 
     <div class="settings__sections">
       <section class="settings-section feature-card">
-        <h2 class="settings-section__title">API 密钥</h2>
-        <p class="settings-section__desc">配置 AI 模型服务的 API 密钥，用于调用后台推理能力。</p>
+        <h2 class="settings-section__title">供应商配置</h2>
+        <p class="settings-section__desc">配置 OpenAI 兼容格式的 AI 模型服务供应商，支持通过 NewAPI 网关代理多种模型。</p>
 
         <div class="settings-section__fields">
           <BaseInput
-            v-model="apiKeys.dashscope_key"
-            label="DashScope API Key"
-            placeholder="用于 Qwen / QVQ 模型"
-            type="password"
+            v-model="apiConfig.api_base"
+            label="供应商地址 (Base URL)"
+            placeholder="https://your-api.com/v1"
           />
           <BaseInput
-            v-model="apiKeys.gemini_key"
-            label="Gemini API Key"
-            placeholder="用于对话模式"
+            v-model="apiConfig.api_key"
+            label="API Key"
+            placeholder="sk-..."
             type="password"
           />
-          <BaseButton variant="primary" :loading="saving" @click="saveKeys" class="settings-btn">
-            保存密钥
+          <BaseButton variant="secondary" :loading="fetchingModels" @click="fetchModels" class="settings-btn">
+            获取模型列表
+          </BaseButton>
+          <p v-if="modelMessage" class="settings-section__msg" :class="{ 'settings-section__msg--error': modelError }">
+            {{ modelMessage }}
+          </p>
+
+          <template v-if="models.length > 0">
+            <div class="model-field">
+              <label class="model-field__label">对话模型 (Chat)</label>
+              <div class="model-field__input-wrap">
+                <input
+                  v-model="apiConfig.chat_model"
+                  class="model-field__input"
+                  list="chat-model-list"
+                  placeholder="选择或输入模型名称"
+                />
+                <datalist id="chat-model-list">
+                  <option v-for="m in models" :key="m.id" :value="m.id" />
+                </datalist>
+              </div>
+            </div>
+            <div class="model-field">
+              <label class="model-field__label">视觉模型 (Vision)</label>
+              <div class="model-field__input-wrap">
+                <input
+                  v-model="apiConfig.vision_model"
+                  class="model-field__input"
+                  list="vision-model-list"
+                  placeholder="选择或输入模型名称"
+                />
+                <datalist id="vision-model-list">
+                  <option v-for="m in models" :key="m.id" :value="m.id" />
+                </datalist>
+              </div>
+            </div>
+            <div class="model-field">
+              <label class="model-field__label">文本模型 (Text)</label>
+              <div class="model-field__input-wrap">
+                <input
+                  v-model="apiConfig.text_model"
+                  class="model-field__input"
+                  list="text-model-list"
+                  placeholder="选择或输入模型名称"
+                />
+                <datalist id="text-model-list">
+                  <option v-for="m in models" :key="m.id" :value="m.id" />
+                </datalist>
+              </div>
+            </div>
+          </template>
+
+          <BaseButton variant="primary" :loading="saving" @click="saveConfig" class="settings-btn">
+            保存配置
           </BaseButton>
           <p v-if="saveMessage" class="settings-section__msg" :class="{ 'settings-section__msg--error': saveError }">
             {{ saveMessage }}
@@ -60,26 +111,43 @@ import { ref, reactive, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/useAuthStore'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import type { ModelInfo } from '@/api/types'
 
 const authStore = useAuthStore()
 
-const apiKeys = reactive({ dashscope_key: '', gemini_key: '' })
+// 供应商配置
+const apiConfig = reactive({
+  api_base: '',
+  api_key: '',
+  chat_model: '',
+  vision_model: '',
+  text_model: ''
+})
+const models = ref<ModelInfo[]>([])
+const fetchingModels = ref(false)
+const modelMessage = ref('')
+const modelError = ref(false)
 const saving = ref(false)
 const saveMessage = ref('')
 const saveError = ref(false)
 
+// 个人信息
 const profile = reactive({ username: '', email: '', password: '' })
 const updatingProfile = ref(false)
 const profileMessage = ref('')
 const profileError = ref(false)
 
 onMounted(async () => {
+  // 加载已有配置
   try {
     const res = await fetch('/api/settings', { credentials: 'include' })
     if (res.ok) {
       const data = await res.json()
-      apiKeys.dashscope_key = data.dashscope_key || ''
-      apiKeys.gemini_key = data.gemini_key || ''
+      apiConfig.api_base = data.api_base || ''
+      apiConfig.api_key = data.api_key || ''
+      apiConfig.chat_model = data.chat_model || ''
+      apiConfig.vision_model = data.vision_model || ''
+      apiConfig.text_model = data.text_model || ''
     }
   } catch { /* ignore */ }
 
@@ -87,9 +155,42 @@ onMounted(async () => {
     profile.username = authStore.user.username
     profile.email = authStore.user.email
   }
+
+  // 如果已有 base URL，尝试自动获取模型列表
+  if (apiConfig.api_base) {
+    fetchModels()
+  }
 })
 
-async function saveKeys() {
+async function fetchModels() {
+  fetchingModels.value = true
+  modelMessage.value = ''
+  modelError.value = false
+  try {
+    const res = await fetch('/api/models', { credentials: 'include' })
+    if (res.ok) {
+      const data = await res.json()
+      const list = Array.isArray(data) ? data : (data.models || [])
+      models.value = list
+      if (list.length > 0) {
+        modelMessage.value = `获取到 ${list.length} 个可用模型`
+      } else {
+        modelMessage.value = data.error || '未获取到模型，请检查供应商地址和 API Key'
+        modelError.value = true
+      }
+    } else {
+      modelMessage.value = '获取模型列表失败'
+      modelError.value = true
+    }
+  } catch {
+    modelMessage.value = '网络错误，请检查供应商地址'
+    modelError.value = true
+  } finally {
+    fetchingModels.value = false
+  }
+}
+
+async function saveConfig() {
   saving.value = true
   saveMessage.value = ''
   try {
@@ -97,11 +198,15 @@ async function saveKeys() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(apiKeys)
+      body: JSON.stringify(apiConfig)
     })
     if (res.ok) {
-      saveMessage.value = '保存成功'
+      saveMessage.value = '配置已保存'
       saveError.value = false
+      // 同步更新 localStorage 中的 chat_model
+      if (apiConfig.chat_model) {
+        localStorage.setItem('chat_model', apiConfig.chat_model)
+      }
     } else {
       saveMessage.value = '保存失败'
       saveError.value = true
@@ -223,5 +328,47 @@ async function saveProfile() {
   align-self: flex-start;
   min-width: 120px;
   margin-top: var(--space-sm);
+}
+
+// 模型选择字段
+.model-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+
+  &__label {
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-ink);
+    letter-spacing: -0.2px;
+  }
+
+  &__input-wrap {
+    position: relative;
+  }
+
+  &__input {
+    width: 100%;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--color-ink);
+    background: var(--color-canvas);
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-md);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+
+    &::placeholder {
+      color: var(--color-muted-soft);
+    }
+
+    &:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.1);
+    }
+  }
 }
 </style>

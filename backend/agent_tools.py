@@ -1,5 +1,5 @@
 """
-Agent 工具集 — 供 Qwen-Max tool_use 调用
+Agent 工具集 — 供 OpenAI function calling 调用
 每个工具函数签名: tool_xxx(video_path, **kwargs) -> (result_dict, summary_str)
 """
 
@@ -9,20 +9,30 @@ import re
 import cv2
 import numpy as np
 
-import dashscope
-from dashscope import MultiModalConversation
-
 from video_utils import extract_frame, crop_region, frame_to_base64
 
 
-# ── Qwen tool_use 格式的工具定义 ──────────────────────────────────────
+# ── 模块级客户端引用（由 app.py 初始化时注入） ─────────────────────────
+
+_ai_client = None
+_vision_model = None
+
+
+def set_client(client, vision_model: str = None):
+    """设置全局 AI 客户端实例和视觉模型名称"""
+    global _ai_client, _vision_model
+    _ai_client = client
+    _vision_model = vision_model
+
+
+# ── OpenAI function calling 格式的工具定义 ──────────────────────────────
 
 TOOL_ANALYZE_SCENE = {
     "type": "function",
     "function": {
         "name": "analyze_scene_frame",
         "description": (
-            "用 Qwen-VL 分析指定帧的场景语义：道路类型、禁停标志位置、"
+            "用视觉模型分析指定帧的场景语义：道路类型、禁停标志位置、"
             "停车区域划分。用于理解违停判定的场景背景。"
         ),
         "parameters": {
@@ -102,6 +112,9 @@ ALL_TOOLS = [TOOL_ANALYZE_SCENE, TOOL_RECOGNIZE_PLATE, TOOL_MOTION_ANALYSIS]
 # ── 工具实现 ──────────────────────────────────────────────────────────
 
 def tool_analyze_scene_frame(video_path: str, frame_index: int, focus: str = "general") -> tuple:
+    if _ai_client is None:
+        return {"error": "AI 客户端未初始化"}, "场景分析失败：客户端未初始化"
+
     frame = extract_frame(video_path, frame_index)
     if frame is None:
         return {"error": "帧提取失败"}, "场景分析失败：无法提取帧"
@@ -124,27 +137,27 @@ def tool_analyze_scene_frame(video_path: str, frame_index: int, focus: str = "ge
     )
 
     try:
-        resp = MultiModalConversation.call(
-            model="qwen-vl-max",
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"image": f"data:image/jpeg;base64,{img_b64}"},
-                    {"text": prompt}
-                ]
-            }]
-        )
-        text = resp.output.choices[0].message.content[0].get("text", "")
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}},
+                {"type": "text", "text": prompt}
+            ]
+        }]
+        text = _ai_client.vision_chat(messages, model=_vision_model)
         json_match = re.search(r'\{.*\}', text, re.DOTALL)
         result = json.loads(json_match.group()) if json_match else {"raw": text}
     except Exception as e:
         result = {"error": str(e)}
 
-    summary = result.get("scene_summary", result.get("raw", "场景分析完成")[:80])
+    summary = result.get("scene_summary", result.get("raw", "场景分析完成"))[:80]
     return result, f"场景分析：{summary}"
 
 
 def tool_recognize_license_plate(video_path: str, frame_index: int, bbox: list) -> tuple:
+    if _ai_client is None:
+        return {"plate": "N/A", "error": "AI 客户端未初始化"}, "车牌识别失败：客户端未初始化"
+
     frame = extract_frame(video_path, frame_index)
     if frame is None:
         return {"plate": "N/A", "error": "帧提取失败"}, "车牌识别失败：无法提取帧"
@@ -153,17 +166,14 @@ def tool_recognize_license_plate(video_path: str, frame_index: int, bbox: list) 
     img_b64 = frame_to_base64(cropped)
 
     try:
-        resp = MultiModalConversation.call(
-            model="qwen-vl-max",
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"image": f"data:image/jpeg;base64,{img_b64}"},
-                    {"text": "请识别图中车辆的车牌号。只输出车牌号，无法识别则输出 N/A。"}
-                ]
-            }]
-        )
-        plate = resp.output.choices[0].message.content[0].get("text", "N/A").strip()
+        messages = [{
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}},
+                {"type": "text", "text": "请识别图中车辆的车牌号。只输出车牌号，无法识别则输出 N/A。"}
+            ]
+        }]
+        plate = _ai_client.vision_chat(messages, model=_vision_model).strip()
     except Exception as e:
         plate = "N/A"
 

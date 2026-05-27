@@ -127,3 +127,19 @@ export interface UserResponse {
   user: User
 }
 
+// 模型信息
+export interface ModelInfo {
+  id: string
+  name?: string
+  owned_by?: string
+}
+
+// 系统设置配置
+export interface SettingsConfig {
+  api_base: string
+  api_key: string  // 返回时已掩码
+  chat_model: string
+  vision_model: string
+  text_model: string
+}
+

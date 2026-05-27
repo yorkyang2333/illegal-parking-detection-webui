@@ -6,14 +6,13 @@ import threading
 from flask import Flask, render_template, request, jsonify, Response, session, send_from_directory
 from flask_cors import CORS
 from dotenv import dotenv_values
-import dashscope
-import google.generativeai as genai
 from PIL import Image
 from database import init_db, db
 from models import Conversation, Message
 from routes.auth import auth_bp, login_required
 from video_utils import extract_frame, crop_region, frame_to_base64, get_video_info
 from sam3_service import SAM3Predictor
+from openai_client import OpenAIClient
 
 app = Flask(__name__)
 
@@ -45,18 +44,29 @@ init_db(app)
 # Register authentication blueprint
 app.register_blueprint(auth_bp)
 
-DASHSCOPE_API_KEY = config.get("DASHSCOPE_API_KEY")
-GEMINI_API_KEY = config.get("GEMINI_API_KEY")
+# ==================== OpenAI 兼容 API 配置 ====================
 
-if DASHSCOPE_API_KEY:
-    dashscope.api_key = DASHSCOPE_API_KEY
-else:
-    print("DASHSCOPE_API_KEY not found in .env file. DashScope functionality may be limited.")
+OPENAI_API_BASE = config.get("OPENAI_API_BASE", "")
+OPENAI_API_KEY = config.get("OPENAI_API_KEY", "")
+CHAT_MODEL = config.get("CHAT_MODEL", "")
+VISION_MODEL = config.get("VISION_MODEL", "")
+TEXT_MODEL = config.get("TEXT_MODEL", "")
 
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-else:
-    print("GEMINI_API_KEY not found in .env file. Gemini functionality will be limited.")
+# 初始化统一 AI 客户端
+ai_client = OpenAIClient(
+    base_url=OPENAI_API_BASE,
+    api_key=OPENAI_API_KEY,
+    default_model=CHAT_MODEL
+)
+
+if not OPENAI_API_BASE:
+    print("OPENAI_API_BASE not configured. Please set it in Settings or .env file.")
+if not OPENAI_API_KEY:
+    print("OPENAI_API_KEY not configured. Please set it in Settings or .env file.")
+
+# 注入 AI 客户端到 agent_tools
+from agent_tools import set_client as set_agent_client
+set_agent_client(ai_client, VISION_MODEL)
 
 # SAM 3 configuration
 SAM3_SERVICE_URL = config.get("SAM3_SERVICE_URL", "http://localhost:8100")
@@ -132,11 +142,10 @@ def run_inference():
     selected_model = data.get('model')
 
     print(f"DEBUG: run_inference called. Selected model: {selected_model}")
-    print(f"DEBUG: Prompt data received: {prompt_data}")
 
-    if not prompt_data or not selected_model:
-        print("DEBUG: Invalid prompt or model received.")
-        return jsonify({'error': 'Invalid prompt or model'}), 400
+    if not prompt_data:
+        print("DEBUG: Invalid prompt received.")
+        return jsonify({'error': 'Invalid prompt'}), 400
 
     # Extract conversation details
     conv_id = data.get('conversation_id')
@@ -166,137 +175,55 @@ def run_inference():
 
     print(f"DEBUG: User input: {user_input}")
 
+    # 使用前端传来的模型名，若为空则使用全局默认 CHAT_MODEL
+    use_model = selected_model if selected_model else CHAT_MODEL
+
     def event_stream():
-        if selected_model == 'dashscope':
-            print("DEBUG: DashScope model selected.")
-            if not DASHSCOPE_API_KEY:
-                print("DEBUG: DashScope API Key not configured.")
-                yield f"data: {json.dumps({'text': 'Error: DashScope API Key not configured.'})}\n\n"
-                return
-            
-            dashscope_messages = [
-                {
-                    "role": "user",
-                    "content": user_input
-                }
+        if not OPENAI_API_BASE or not OPENAI_API_KEY:
+            yield f"data: {json.dumps({'text': 'Error: API 未配置，请在设置中填写供应商地址和 API Key。'})}\\n\\n"
+            return
+
+        try:
+            messages = [
+                {"role": "user", "content": user_input}
             ]
-            print(f"DEBUG: Calling DashScope with messages: {dashscope_messages}")
-            responses = dashscope.Generation.call(model='qwen-plus-latest', messages=dashscope_messages, stream=True, incremental_output=True)
-            for response in responses:
-                print(f"DEBUG: DashScope response chunk: {response}")
+
+            yield f"data: {json.dumps({'status': 'generating_text', 'text': ''})}\\n\\n"
+
+            accumulated_text = ""
+            for chunk_text in ai_client.chat_stream(messages, model=use_model):
+                accumulated_text += chunk_text
                 formatted_response = {
                     "output": {
                         "choices": [
                             {
                                 "message": {
                                     "content": [
-                                        {"text": response.output.text}
+                                        {"text": chunk_text}
                                     ]
                                 }
                             }
                         ]
                     }
                 }
-                yield f"data: {json.dumps(formatted_response)}\n\n"
-        
-        elif selected_model == 'gemini':
-            print("DEBUG: Gemini model selected.")
-            if not GEMINI_API_KEY:
-                print("DEBUG: Gemini API Key not configured.")
-                yield f"data: {json.dumps({'text': 'Error: Gemini API Key not configured.'})}\n\n"
-                return
-            
-            try:
-                uploaded_file = None
-                
-                # Enforce JSON template
-                json_instruction = """
-You are a PRTS Analysis Core. Analyze the video and the user prompt, then output your response EXACTLY in this raw JSON format without any markdown code blocks (no ```json):
-{
-  "license_plate": "String or N/A",
-  "vehicle_color": "String or N/A",
-  "violation_type": "String or N/A",
-  "timestamp": "Time range or N/A",
-  "analysis": "Detailed analysis string",
-  "suggested_penalty": "Penalty suggestion string"
-}
-"""
-                gemini_prompt = [json_instruction, "User Command: " + user_input]
+                yield f"data: {json.dumps(formatted_response)}\\n\\n"
 
-                # Handle media upload to Gemini if present
-                if media_filename:
-                    media_path = os.path.join(UPLOAD_FOLDER, media_filename)
-                    if os.path.exists(media_path):
-                        yield f"data: {json.dumps({'status': 'uploading_media', 'text': '[System]: Uploading visual feed to remote analysis core...'})}\n\n"
-                        try:
-                            # Upload to Google
-                            uploaded_file = genai.upload_file(path=media_path)
-                            
-                            # Wait for processing
-                            yield f"data: {json.dumps({'status': 'processing_media', 'text': '[System]: Media uplink successful. Analyzing frames...'})}\n\n"
-                            while uploaded_file.state.name == "PROCESSING":
-                                import time
-                                time.sleep(2)
-                                uploaded_file = genai.get_file(uploaded_file.name)
-                            
-                            if uploaded_file.state.name == "FAILED":
-                                yield f"data: {json.dumps({'text': '[System]: Error: Media processing failed on remote core.'})}\n\n"
-                            else:
-                                gemini_prompt.insert(0, uploaded_file)
-                        except Exception as ve:
-                            print(f"ERROR: Media upload failed: {ve}")
-                            yield f"data: {json.dumps({'text': f'[System]: Media integration failed: {str(ve)}'})}\n\n"
-                
-                yield f"data: {json.dumps({'status': 'generating_text', 'text': ''})}\n\n"
-                model = genai.GenerativeModel('gemini-3-flash-preview')
-                response = model.generate_content(gemini_prompt, stream=True)
-                accumulated_text = ""
-                for chunk in response:
-                    if chunk.text:
-                        accumulated_text += chunk.text
-                        formatted_response = {
-                            "output": {
-                                "choices": [
-                                    {
-                                        "message": {
-                                            "content": [
-                                                {"text": chunk.text}
-                                            ]
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                        yield f"data: {json.dumps(formatted_response)}\n\n"
-                    
-                # Clean up uploaded video from Google's servers to save space
-                if uploaded_file:
-                    try:
-                        genai.delete_file(uploaded_file.name)
-                        print(f"DEBUG: Deleted temporary file {uploaded_file.name} from Google servers.")
-                    except Exception as clean_err:
-                        print(f"WARNING: Failed to delete file from Google servers: {clean_err}")
+            # Save assistant message to Database after completely generated
+            with app.app_context():
+                db_conv = Conversation.query.get(conv_id)
+                ai_msg = Message(
+                    conversation_id=conv_id,
+                    role='assistant',
+                    content=accumulated_text
+                )
+                db.session.add(ai_msg)
+                if db_conv:
+                    db_conv.updated_at = db.func.now()
+                db.session.commit()
 
-                # Save assistant message to Database after completely generated
-                with app.app_context():
-                    db_conv = Conversation.query.get(conv_id)
-                    ai_msg = Message(
-                        conversation_id=conv_id,
-                        role='assistant',
-                        content=accumulated_text
-                    )
-                    db.session.add(ai_msg)
-                    if db_conv:
-                        db_conv.updated_at = db.func.now()
-                    db.session.commit()
-                    
-            except Exception as e:
-                print(f"ERROR: Gemini run failed: {e}")
-                yield f"data: {json.dumps({'text': f'Error: {str(e)}'})}\n\n"
-        
-        else:
-            print("DEBUG: Invalid model selected.")
-            yield f"data: {json.dumps({'text': 'Error: Invalid model selected.'})}\n\n"
+        except Exception as e:
+            print(f"ERROR: Chat inference failed: {e}")
+            yield f"data: {json.dumps({'text': f'Error: {str(e)}'})}\\n\\n"
 
     return Response(event_stream(), mimetype='text/event-stream')
 
@@ -356,16 +283,16 @@ def analyze_sam3():
     def event_stream():
         video_path = os.path.join(UPLOAD_FOLDER, video_name)
         if not os.path.exists(video_path):
-            yield f"data: {json.dumps({'error': f'视频文件不存在: {video_name}'})}\n\n"
+            yield f"data: {json.dumps({'error': f'视频文件不存在: {video_name}'})}\\n\\n"
             return
 
         info = get_video_info(video_path)
         if not info:
-            yield f"data: {json.dumps({'error': '无法读取视频文件'})}\n\n"
+            yield f"data: {json.dumps({'error': '无法读取视频文件'})}\\n\\n"
             return
 
         init_msg = f'[SAM3]: 正在初始化模型... 视频时长 {info["duration_sec"]}s, {info["total_frames"]} 帧'
-        yield f"data: {json.dumps({'status': 'sam3_init', 'text': init_msg})}\n\n"
+        yield f"data: {json.dumps({'status': 'sam3_init', 'text': init_msg})}\\n\\n"
 
         progress_state = {"last_reported": 0}
         progress_events = []
@@ -392,32 +319,32 @@ def analyze_sam3():
                             )
                         result = resp.json()
                     else:
-                        yield f"data: {json.dumps({'status': 'sam3_fallback', 'text': '[SAM3]: 远程服务不可用，使用本地 Mock 模式'})}\n\n"
+                        yield f"data: {json.dumps({'status': 'sam3_fallback', 'text': '[SAM3]: 远程服务不可用，使用本地 Mock 模式'})}\\n\\n"
                         result = sam3_predictor.process_video(video_path, progress_callback=on_progress)
                 except (req.ConnectionError, req.Timeout):
-                    yield f"data: {json.dumps({'status': 'sam3_fallback', 'text': '[SAM3]: 远程服务不可用，使用本地 Mock 模式'})}\n\n"
+                    yield f"data: {json.dumps({'status': 'sam3_fallback', 'text': '[SAM3]: 远程服务不可用，使用本地 Mock 模式'})}\\n\\n"
                     result = sam3_predictor.process_video(video_path, progress_callback=on_progress)
 
             if "error" in result:
-                yield f"data: {json.dumps({'error': result['error']})}\n\n"
+                yield f"data: {json.dumps({'error': result['error']})}\\n\\n"
                 return
 
             vehicle_count = len(result["vehicles"])
-            yield f"data: {json.dumps({'status': 'sam3_tracking', 'text': f'[SAM3]: 追踪完成，检测到 {vehicle_count} 辆车辆'})}\n\n"
+            yield f"data: {json.dumps({'status': 'sam3_tracking', 'text': f'[SAM3]: 追踪完成，检测到 {vehicle_count} 辆车辆'})}\\n\\n"
 
             # Build human-readable summary
             violations = [v for v in result["vehicles"] if v.get("is_violation")]
             non_violations = [v for v in result["vehicles"] if not v.get("is_violation")]
 
             summary_lines = [
-                f"## SAM 3 车辆追踪分析结果\n",
+                f"## SAM 3 车辆追踪分析结果\\n",
                 f"- 视频时长: {result['duration_sec']}s ({result['total_frames']} 帧, {result['fps']:.1f} FPS)",
                 f"- 检测车辆数: {len(result['vehicles'])}",
-                f"- 违停车辆数: {len(violations)}\n",
+                f"- 违停车辆数: {len(violations)}\\n",
             ]
 
             if violations:
-                summary_lines.append("### 违停车辆\n")
+                summary_lines.append("### 违停车辆\\n")
                 for v in violations:
                     summary_lines.append(
                         f"- **车辆 {v['track_id']}** (类型: {v['class']}): "
@@ -425,13 +352,13 @@ def analyze_sam3():
                     )
 
             if non_violations:
-                summary_lines.append("\n### 正常行驶车辆\n")
+                summary_lines.append("\\n### 正常行驶车辆\\n")
                 for v in non_violations:
                     summary_lines.append(
                         f"- 车辆 {v['track_id']} (类型: {v['class']}): 正常行驶"
                     )
 
-            summary_text = "\n".join(summary_lines)
+            summary_text = "\\n".join(summary_lines)
 
             # Stream the summary text
             formatted_response = {
@@ -444,7 +371,7 @@ def analyze_sam3():
                 },
                 "sam3_data": result
             }
-            yield f"data: {json.dumps(formatted_response)}\n\n"
+            yield f"data: {json.dumps(formatted_response)}\\n\\n"
 
             # Save SAM 3 results to file for downstream steps
             result_path = os.path.join(UPLOAD_FOLDER, f"{video_name}_sam3.json")
@@ -453,7 +380,7 @@ def analyze_sam3():
 
         except Exception as e:
             print(f"ERROR: SAM 3 analysis failed: {e}")
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield f"data: {json.dumps({'error': str(e)})}\\n\\n"
 
     return Response(event_stream(), mimetype='text/event-stream')
 
@@ -472,8 +399,8 @@ def analyze_qvq():
     print(f"DEBUG: QVQ analysis requested for video: {video_name}")
 
     def event_stream():
-        if not DASHSCOPE_API_KEY:
-            yield f"data: {json.dumps({'error': 'DashScope API Key 未配置'})}\n\n"
+        if not OPENAI_API_BASE or not OPENAI_API_KEY:
+            yield f"data: {json.dumps({'error': 'API 未配置，请在设置中填写供应商地址和 API Key。'})}\\n\\n"
             return
 
         # Load SAM 3 results from file if not passed directly
@@ -485,7 +412,7 @@ def analyze_qvq():
                     results = json.load(f)
 
         if not results or not results.get("vehicles"):
-            yield f"data: {json.dumps({'error': '未找到 SAM 3 分析结果，请先执行车辆追踪'})}\n\n"
+            yield f"data: {json.dumps({'error': '未找到 SAM 3 分析结果，请先执行车辆追踪'})}\\n\\n"
             return
 
         violations = [v for v in results["vehicles"] if v.get("is_violation")]
@@ -499,7 +426,7 @@ def analyze_qvq():
                     }]
                 }
             }
-            yield f"data: {json.dumps(formatted_response)}\n\n"
+            yield f"data: {json.dumps(formatted_response)}\\n\\n"
             return
 
         video_path = os.path.join(UPLOAD_FOLDER, video_name)
@@ -510,7 +437,7 @@ def analyze_qvq():
             frame_idx = v["best_frame_index"]
             bbox = v["best_frame_bbox"]
 
-            yield f"data: {json.dumps({'status': 'extracting', 'text': f'[QVQ]: 正在提取车辆 {track_id} 的帧画面...'})}\n\n"
+            yield f"data: {json.dumps({'status': 'extracting', 'text': f'[Vision]: 正在提取车辆 {track_id} 的帧画面...'})}\\n\\n"
 
             frame = extract_frame(video_path, frame_idx)
             if frame is None:
@@ -524,35 +451,26 @@ def analyze_qvq():
 
             img_base64 = frame_to_base64(cropped)
 
-            yield f"data: {json.dumps({'status': 'recognizing', 'text': f'[QVQ]: 正在识别车辆 {track_id} 的车牌...'})}\n\n"
+            yield f"data: {json.dumps({'status': 'recognizing', 'text': f'[Vision]: 正在识别车辆 {track_id} 的车牌...'})}\\n\\n"
 
             try:
                 messages = [{
                     "role": "user",
                     "content": [
-                        {"image": f"data:image/jpeg;base64,{img_base64}"},
-                        {"text": "请识别这张图片中车辆的车牌号。只输出车牌号，如果无法识别请输出'无法识别'。"}
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_base64}"}},
+                        {"type": "text", "text": "请识别这张图片中车辆的车牌号。只输出车牌号，如果无法识别请输出'无法识别'。"}
                     ]
                 }]
 
-                from dashscope import MultiModalConversation
-                response = MultiModalConversation.call(
-                    model='qwen-vl-max',
-                    messages=messages,
-                )
-
-                if response and response.output:
-                    plate_text = response.output.choices[0].message.content[0].get("text", "无法识别")
-                else:
-                    plate_text = "识别失败"
+                plate_text = ai_client.vision_chat(messages, model=VISION_MODEL)
 
                 all_plate_results.append(f"- 车辆 {track_id} (类型: {v['class']}): {plate_text.strip()}")
 
             except Exception as e:
-                print(f"ERROR: QVQ recognition failed for track {track_id}: {e}")
+                print(f"ERROR: Vision recognition failed for track {track_id}: {e}")
                 all_plate_results.append(f"- 车辆 {track_id}: 识别出错 ({str(e)[:50]})")
 
-        result_text = "## 车牌识别结果\n\n" + "\n".join(all_plate_results)
+        result_text = "## 车牌识别结果\\n\\n" + "\\n".join(all_plate_results)
         formatted_response = {
             "output": {
                 "choices": [{
@@ -562,7 +480,7 @@ def analyze_qvq():
                 }]
             }
         }
-        yield f"data: {json.dumps(formatted_response)}\n\n"
+        yield f"data: {json.dumps(formatted_response)}\\n\\n"
 
     return Response(event_stream(), mimetype='text/event-stream')
 
@@ -570,7 +488,7 @@ def analyze_qvq():
 @app.route('/api/analyze/merge', methods=['POST', 'OPTIONS'])
 @login_required
 def analyze_merge():
-    """调用 Qwen 合并 SAM 3 违停数据和车牌识别结果，生成最终报告"""
+    """调用文本模型合并 SAM 3 违停数据和车牌识别结果，生成最终报告"""
     if request.method == 'OPTIONS':
         return '', 204
 
@@ -581,8 +499,8 @@ def analyze_merge():
     print(f"DEBUG: Merge report requested")
 
     def event_stream():
-        if not DASHSCOPE_API_KEY:
-            yield f"data: {json.dumps({'error': 'API Key 未配置'})}\n\n"
+        if not OPENAI_API_BASE or not OPENAI_API_KEY:
+            yield f"data: {json.dumps({'error': 'API 未配置'})}\\n\\n"
             return
 
         try:
@@ -602,34 +520,28 @@ def analyze_merge():
 请确保格式清晰明确，逻辑性强，仅基于以上提供的数据进行输出，不要主观臆断。"""
 
             messages = [{"role": "user", "content": prompt}]
-            responses = dashscope.Generation.call(
-                model='qwen-max-latest',
-                messages=messages,
-                stream=True,
-                incremental_output=True
-            )
 
-            for response in responses:
-                if response.output and response.output.text:
-                    formatted_response = {
-                        "output": {
-                            "choices": [{
-                                "message": {
-                                    "content": [{"text": response.output.text}]
-                                }
-                            }]
-                        }
+            for chunk_text in ai_client.chat_stream(messages, model=TEXT_MODEL):
+                formatted_response = {
+                    "output": {
+                        "choices": [{
+                            "message": {
+                                "content": [{"text": chunk_text}]
+                            }
+                        }]
                     }
-                    yield f"data: {json.dumps(formatted_response)}\n\n"
+                }
+                yield f"data: {json.dumps(formatted_response)}\\n\\n"
+
         except Exception as e:
             print(f"ERROR: Merge analysis failed: {e}")
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield f"data: {json.dumps({'error': str(e)})}\\n\\n"
 
     return Response(event_stream(), mimetype='text/event-stream')
 
 
 def _sse(event_dict: dict) -> str:
-    return f"data: {json.dumps(event_dict, ensure_ascii=False)}\n\n"
+    return f"data: {json.dumps(event_dict, ensure_ascii=False)}\\n\\n"
 
 
 @app.route('/api/analyze/agent', methods=['POST', 'OPTIONS'])
@@ -760,32 +672,31 @@ def analyze_agent():
 
         for iteration in range(10):
             try:
-                response = dashscope.Generation.call(
-                    model='qwen-max-latest',
+                response = ai_client.chat_with_tools(
                     messages=messages,
                     tools=ALL_TOOLS,
-                    tool_choice="auto",
-                    result_format='message'
+                    model=TEXT_MODEL
                 )
             except Exception as e:
                 yield _sse({"type": "thought", "content": f"Agent 调用失败：{e}"})
                 break
 
-            choice = response.output.choices[0]
-            msg = choice.message
-            finish_reason = choice.finish_reason
+            choice = response["choices"][0]
+            msg = choice["message"]
+            finish_reason = choice.get("finish_reason", "stop")
 
             # 流式输出思考内容
-            if msg.content:
-                yield _sse({"type": "thought", "content": msg.content})
+            msg_content = msg.get("content") or ""
+            if msg_content:
+                yield _sse({"type": "thought", "content": msg_content})
 
-            tool_calls = getattr(msg, 'tool_calls', None)
+            tool_calls = msg.get("tool_calls")
 
             if finish_reason == 'stop' or not tool_calls:
                 # Agent 完成，尝试解析最终 JSON
-                if msg.content:
+                if msg_content:
                     try:
-                        json_match = re.search(r'\[.*\]', msg.content, re.DOTALL)
+                        json_match = re.search(r'\[.*\]', msg_content, re.DOTALL)
                         if json_match:
                             final_violations_from_agent = json.loads(json_match.group())
                     except Exception:
@@ -793,22 +704,22 @@ def analyze_agent():
                 break
 
             # 执行工具调用
-            assistant_msg = {"role": "assistant", "content": msg.content or ""}
+            assistant_msg = {"role": "assistant", "content": msg_content}
             if tool_calls:
                 assistant_msg["tool_calls"] = [
                     {
-                        "id": tc.id,
+                        "id": tc["id"],
                         "type": "function",
-                        "function": {"name": tc.function.name, "arguments": tc.function.arguments}
+                        "function": {"name": tc["function"]["name"], "arguments": tc["function"]["arguments"]}
                     }
                     for tc in tool_calls
                 ]
             messages.append(assistant_msg)
 
             for tc in tool_calls:
-                tool_name = tc.function.name
+                tool_name = tc["function"]["name"]
                 try:
-                    tool_args = json.loads(tc.function.arguments)
+                    tool_args = json.loads(tc["function"]["arguments"])
                 except Exception:
                     tool_args = {}
 
@@ -850,7 +761,7 @@ def analyze_agent():
 
                 messages.append({
                     "role": "tool",
-                    "tool_call_id": tc.id,
+                    "tool_call_id": tc["id"],
                     "content": json.dumps(tool_result, ensure_ascii=False)
                 })
 
@@ -966,27 +877,56 @@ def _get_raw_tracks(video_path: str, sam3_result: dict, fps: float,
     return tracks
 
 
+# ==================== 设置与模型列表 API ====================
+
+def _mask_key(key: str) -> str:
+    """对 API Key 进行掩码处理"""
+    if not key:
+        return ""
+    if len(key) <= 8:
+        return "*" * len(key)
+    return key[:4] + "*" * (len(key) - 8) + key[-4:]
+
+
 @app.route('/api/settings', methods=['GET', 'POST'])
 @login_required
 def handle_settings():
     """获取或保存系统设置"""
-    global DASHSCOPE_API_KEY, GEMINI_API_KEY
+    global OPENAI_API_BASE, OPENAI_API_KEY, CHAT_MODEL, VISION_MODEL, TEXT_MODEL
     
     env_path = os.path.join(os.path.dirname(__file__), ".env")
     
     if request.method == 'POST':
         data = request.get_json()
-        new_dashscope_key = data.get('dashscope_key')
-        new_gemini_key = data.get('gemini_key')
+        new_api_base = data.get('api_base')
+        new_api_key = data.get('api_key')
+        new_chat_model = data.get('chat_model')
+        new_vision_model = data.get('vision_model')
+        new_text_model = data.get('text_model')
         
         # 更新内存中的变量
-        if new_dashscope_key:
-            DASHSCOPE_API_KEY = new_dashscope_key
-            dashscope.api_key = new_dashscope_key
+        if new_api_base is not None:
+            OPENAI_API_BASE = new_api_base
+        if new_api_key is not None and '*' not in new_api_key:
+            # 只有非掩码值才更新 key
+            OPENAI_API_KEY = new_api_key
+        if new_chat_model is not None:
+            CHAT_MODEL = new_chat_model
+        if new_vision_model is not None:
+            VISION_MODEL = new_vision_model
+        if new_text_model is not None:
+            TEXT_MODEL = new_text_model
             
-        if new_gemini_key:
-            GEMINI_API_KEY = new_gemini_key
-            
+        # 动态更新 AI 客户端
+        ai_client.update_config(
+            base_url=OPENAI_API_BASE,
+            api_key=OPENAI_API_KEY,
+            default_model=CHAT_MODEL
+        )
+        
+        # 更新 agent_tools 中的客户端
+        set_agent_client(ai_client, VISION_MODEL)
+
         # 更新 .env 文件
         try:
             # 读取现有内容
@@ -1000,19 +940,18 @@ def handle_settings():
                             env_content[key.strip()] = value.strip()
             
             # 更新值
-            if new_dashscope_key:
-                env_content['DASHSCOPE_API_KEY'] = new_dashscope_key
-            if new_gemini_key:
-                env_content['GEMINI_API_KEY'] = new_gemini_key
+            env_content['OPENAI_API_BASE'] = OPENAI_API_BASE
+            if new_api_key and '*' not in new_api_key:
+                env_content['OPENAI_API_KEY'] = OPENAI_API_KEY
+            env_content['CHAT_MODEL'] = CHAT_MODEL
+            env_content['VISION_MODEL'] = VISION_MODEL
+            env_content['TEXT_MODEL'] = TEXT_MODEL
                 
             # 写入文件
             with open(env_path, 'w', encoding='utf-8') as f:
                 for key, value in env_content.items():
                     f.write(f"{key}={value}\n")
                     
-            # 保留其他非键值对行的逻辑比较复杂，这里简化为重新写入所有识别到的键值对
-            # 如果需要保留注释，需要更复杂的解析，但作为简单的设置功能，这样足够了
-            
             return jsonify({'message': '设置已保存'})
             
         except Exception as e:
@@ -1022,11 +961,25 @@ def handle_settings():
     else:
         # GET 请求返回当前设置
         return jsonify({
-            'dashscope_key': DASHSCOPE_API_KEY or '',
-            'gemini_key': GEMINI_API_KEY or ''
+            'api_base': OPENAI_API_BASE or '',
+            'api_key': _mask_key(OPENAI_API_KEY),
+            'chat_model': CHAT_MODEL or '',
+            'vision_model': VISION_MODEL or '',
+            'text_model': TEXT_MODEL or ''
         })
+
+
+@app.route('/api/models', methods=['GET'])
+@login_required
+def handle_models():
+    """获取可用模型列表"""
+    try:
+        models = ai_client.list_models()
+        return jsonify(models)
+    except Exception as e:
+        print(f"ERROR: Failed to fetch models: {e}")
+        return jsonify({'error': str(e), 'models': []}), 200
 
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001, host='0.0.0.0')
-

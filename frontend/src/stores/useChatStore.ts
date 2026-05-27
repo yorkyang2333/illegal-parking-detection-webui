@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useSSE } from '@/composables/useSSE'
 import { useAuthStore } from './useAuthStore'
 import router from '@/router'
-import type { InferenceRequest, PromptMessage, ConversationMessage, Conversation } from '@/api/types'
+import type { InferenceRequest, PromptMessage, ConversationMessage, Conversation, ModelInfo } from '@/api/types'
 
 export interface ChatMessage {
   id: string
@@ -24,6 +24,10 @@ export const useChatStore = defineStore('chat', () => {
   const conversations = ref<Conversation[]>([])
   const activeConversationId = ref<number | null>(null)
   const uploadedMediaFilename = ref<string | null>(null)
+
+  // Model selection
+  const selectedModel = ref(localStorage.getItem('chat_model') || '')
+  const availableModels = ref<ModelInfo[]>([])
 
   // Computed
   const hasMessages = computed(() => messages.value.length > 0)
@@ -133,7 +137,7 @@ export const useChatStore = defineStore('chat', () => {
 
     const payload: InferenceRequest = {
       prompt: formatPromptForAPI(content.trim()),
-      model: 'gemini',
+      model: selectedModel.value,
       conversation_id: activeConversationId.value!,
       media_filename: uploadedMediaFilename.value || undefined
     }
@@ -237,6 +241,24 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  function setModel(model: string) {
+    selectedModel.value = model
+    localStorage.setItem('chat_model', model)
+  }
+
+  async function fetchModels() {
+    try {
+      const res = await fetch('/api/models', { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        // 接口可能返回数组或 { models: [], error: ... } 格式
+        availableModels.value = Array.isArray(data) ? data : (data.models || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch models', e)
+    }
+  }
+
   return {
     // State
     messages,
@@ -245,6 +267,8 @@ export const useChatStore = defineStore('chat', () => {
     conversations,
     activeConversationId,
     uploadedMediaFilename,
+    selectedModel,
+    availableModels,
     // Computed
     hasMessages,
     // Actions
@@ -254,6 +278,8 @@ export const useChatStore = defineStore('chat', () => {
     fetchConversations,
     loadConversation,
     createNewConversation,
-    uploadMedia
+    uploadMedia,
+    setModel,
+    fetchModels
   }
 })

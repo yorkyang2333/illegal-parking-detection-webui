@@ -29,9 +29,12 @@
       <ChatInput
         :is-streaming="chatStore.isStreaming"
         :has-media="!!chatStore.uploadedMediaFilename"
+        :models="chatStore.availableModels"
+        :current-model="chatStore.selectedModel"
         @send="handleSend"
         @stop="chatStore.stopStreaming()"
         @upload="handleUpload"
+        @select-model="chatStore.setModel($event)"
       />
     </main>
   </div>
@@ -52,6 +55,7 @@ const sidebarOpen = ref(true)
 
 onMounted(() => {
   chatStore.fetchConversations()
+  chatStore.fetchModels()
 })
 
 function handleNewChat() {
